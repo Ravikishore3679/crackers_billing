@@ -38,6 +38,9 @@ dependencies:
   printing: ^5.13.1
   provider: ^6.1.2
   share_plus: ^11.0.0
+  firebase_core: ^4.15.0
+  firebase_auth: ^6.7.0
+  google_sign_in: ^7.2.0
 
 dev_dependencies:
   flutter_test:

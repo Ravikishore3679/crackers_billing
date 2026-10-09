@@ -1,0 +1,46 @@
+{
+  "project_info": {
+    "project_number": "162682850132",
+    "project_id": "crackers-billing",
+    "storage_bucket": "crackers-billing.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:162682850132:android:4a8c1c35f11684d21c16c1",
+        "android_client_info": {
+          "package_name": "com.example.crackers_billing"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "162682850132-pb5alb13lnmcvhagkfeu7t1l5mtoaocv.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBkXFiECvFxOtL08XDNkLxJGqEwCsEN9R4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "162682850132-pb5alb13lnmcvhagkfeu7t1l5mtoaocv.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "162682850132-g5600hb6dshqullif2i200oki9k74nus.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.crackersBilling"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

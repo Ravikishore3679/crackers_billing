@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -56,6 +57,15 @@ class _AppShellState extends State<AppShell> {
           title: const Text('Crackers Sales & Invoices'),
           backgroundColor: Theme.of(context).colorScheme.primary,
           foregroundColor: Theme.of(context).colorScheme.onPrimary,
+          actions: [
+            IconButton(
+              tooltip: 'Sign out',
+              onPressed: () async {
+                await FirebaseAuth.instance.signOut();
+              },
+              icon: const Icon(Icons.logout_rounded),
+            ),
+          ],
         ),
         body: IndexedStack(
           index: _selectedIndex,
