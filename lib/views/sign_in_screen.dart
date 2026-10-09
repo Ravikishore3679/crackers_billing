@@ -1,6 +1,24 @@
+import 'package:crackers_billing/google_sign_in_web_button.dart'
+    as google_sign_in_web;
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+
+typedef GoogleSignInExecutor<T> = Future<T> Function();
+
+Future<T?> signInWithGoogleFlow<T extends Object>({
+  required bool supportsAuthenticate,
+  GoogleSignInExecutor<T>? authenticate,
+}) async {
+  if (!supportsAuthenticate) {
+    return null;
+  }
+
+  return authenticate == null
+      ? GoogleSignIn.instance.authenticate() as Future<T>
+      : authenticate();
+}
 
 class SignInScreen extends StatefulWidget {
   const SignInScreen({super.key});
@@ -63,7 +81,13 @@ class _SignInScreenState extends State<SignInScreen> {
     setState(() => _isLoading = true);
 
     try {
-      final googleAccount = await GoogleSignIn.instance.authenticate();
+      final googleAccount = await signInWithGoogleFlow<GoogleSignInAccount>(
+        supportsAuthenticate: GoogleSignIn.instance.supportsAuthenticate(),
+      );
+      if (googleAccount == null) {
+        return;
+      }
+
       final googleAuth = googleAccount.authentication;
       final credential = GoogleAuthProvider.credential(
         idToken: googleAuth.idToken,
@@ -237,11 +261,17 @@ class _SignInScreenState extends State<SignInScreen> {
                           ],
                         ),
                         const SizedBox(height: 16),
-                        OutlinedButton.icon(
-                          onPressed: _isLoading ? null : _signInWithGoogle,
-                          icon: const Icon(Icons.g_mobiledata_rounded),
-                          label: const Text('Continue with Google'),
-                        ),
+                        if (kIsWeb && !GoogleSignIn.instance.supportsAuthenticate())
+                          SizedBox(
+                            height: 48,
+                            child: google_sign_in_web.renderButton(),
+                          )
+                        else
+                          OutlinedButton.icon(
+                            onPressed: _isLoading ? null : _signInWithGoogle,
+                            icon: const Icon(Icons.g_mobiledata_rounded),
+                            label: const Text('Continue with Google'),
+                          ),
                       ],
                     ),
                   ),

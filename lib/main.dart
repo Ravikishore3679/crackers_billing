@@ -17,7 +17,9 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   if (kIsWeb) {
-    await GoogleSignIn.instance.initialize();
+    await GoogleSignIn.instance.initialize(
+      clientId: googleWebClientId,
+    );
   } else {
     await GoogleSignIn.instance.initialize(
       clientId: googleIOSClientId,

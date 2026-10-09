@@ -1,6 +1,6 @@
-import 'package:crackers_billing/main.dart';
-import 'package:flutter_test/flutter_test.dart';
+import 'package:crackers_billing/views/app_shell.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   testWidgets('sales screen renders the catalog and app header', (
@@ -13,7 +13,7 @@ void main() {
       tester.view.resetDevicePixelRatio();
     });
 
-    await tester.pumpWidget(const CrackersBillingApp());
+    await tester.pumpWidget(const MaterialApp(home: AppShell()));
 
     expect(find.text('Crackers Sales & Invoices'), findsOneWidget);
     expect(find.text('Available Crackers'), findsOneWidget);
