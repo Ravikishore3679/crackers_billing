@@ -1,6 +1,5 @@
 import 'package:crackers_billing/models/cracker_item.dart';
 import 'package:crackers_billing/view_models/sales_view_model.dart';
-import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -59,10 +58,7 @@ void main() {
       expect(invoice.netTotal, greaterThanOrEqualTo(0));
     });
 
-    test('merges duplicate item entries by category, subcategory and name', () async {
-      TestWidgetsFlutterBinding.ensureInitialized();
-      await Firebase.initializeApp();
-
+    test('merges duplicate item entries by category, subcategory and name', () {
       final viewModel = SalesViewModel();
 
       final first = CrackerItem(

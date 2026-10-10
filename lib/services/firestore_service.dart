@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
 
 import '../models/cracker_item.dart';
 import '../models/invoice.dart';
@@ -22,6 +23,10 @@ class FirestoreService {
       _db.collection('app_settings');
 
   Future<void> saveInventoryItem(CrackerItem item, {String? userId}) async {
+    if (Firebase.apps.isEmpty) {
+      return;
+    }
+
     final uid = userId ?? FirebaseAuth.instance.currentUser?.uid ?? 'anonymous';
 
     await _inventoryCollection.doc(item.id).set({
@@ -42,6 +47,10 @@ class FirestoreService {
   }
 
   Future<List<CrackerItem>> fetchInventoryItems({String? userId}) async {
+    if (Firebase.apps.isEmpty) {
+      return const [];
+    }
+
     Query<Map<String, dynamic>> query = _inventoryCollection.orderBy('name');
 
     if (userId != null) {
@@ -68,6 +77,10 @@ class FirestoreService {
   }
 
   Future<void> saveCategoryCatalog(Map<String, List<String>> catalog, {String? userId}) async {
+    if (Firebase.apps.isEmpty) {
+      return;
+    }
+
     final uid = userId ?? FirebaseAuth.instance.currentUser?.uid ?? 'anonymous';
     await _settingsCollection.doc('inventory_catalog').set({
       'catalog': catalog.map((key, value) => MapEntry(key, value)),
@@ -77,6 +90,10 @@ class FirestoreService {
   }
 
   Future<Map<String, List<String>>> fetchCategoryCatalog({String? userId}) async {
+    if (Firebase.apps.isEmpty) {
+      return <String, List<String>>{};
+    }
+
     final uid = userId ?? FirebaseAuth.instance.currentUser?.uid ?? 'anonymous';
     final snapshot = await _settingsCollection.doc('inventory_catalog').get();
     final data = snapshot.data();

@@ -1,4 +1,5 @@
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 
 import '../models/cracker_item.dart';
@@ -131,13 +132,15 @@ class SalesViewModel extends ChangeNotifier {
       _errorMessage = null;
       notifyListeners();
 
-      FirestoreService.instance.saveInventoryItem(
-        mergedItem,
-        userId: FirebaseAuth.instance.currentUser?.uid,
-      ).catchError((error) {
-        _errorMessage = 'Item updated locally but cloud sync failed: $error';
-        notifyListeners();
-      });
+      if (Firebase.apps.isNotEmpty) {
+        FirestoreService.instance.saveInventoryItem(
+          mergedItem,
+          userId: FirebaseAuth.instance.currentUser?.uid,
+        ).catchError((error) {
+          _errorMessage = 'Item updated locally but cloud sync failed: $error';
+          notifyListeners();
+        });
+      }
       return;
     }
 
@@ -149,13 +152,15 @@ class SalesViewModel extends ChangeNotifier {
     _errorMessage = null;
     notifyListeners();
 
-    FirestoreService.instance.saveInventoryItem(
-      item,
-      userId: FirebaseAuth.instance.currentUser?.uid,
-    ).catchError((error) {
-      _errorMessage = 'Item saved locally but cloud sync failed: $error';
-      notifyListeners();
-    });
+    if (Firebase.apps.isNotEmpty) {
+      FirestoreService.instance.saveInventoryItem(
+        item,
+        userId: FirebaseAuth.instance.currentUser?.uid,
+      ).catchError((error) {
+        _errorMessage = 'Item saved locally but cloud sync failed: $error';
+        notifyListeners();
+      });
+    }
   }
 
   void addToCart(CrackerItem item) {
