@@ -1,51 +1,18 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../models/cracker_item.dart';
 import '../models/invoice.dart';
 import '../models/invoice_line_item.dart';
+import '../services/firestore_service.dart';
 
 class SalesViewModel extends ChangeNotifier {
   SalesViewModel({List<CrackerItem>? catalog}) : _catalog = List<CrackerItem>.from(catalog ?? defaultCatalog) {
     discountController.text = '0.00';
+    Future.microtask(loadCatalog);
   }
 
-  static final List<CrackerItem> defaultCatalog = [
-    const CrackerItem(
-      id: 'spark-001',
-      name: 'Silver Sparkler Pack',
-      category: 'Sparklers',
-      unitPrice: 120.0,
-      stockAvailable: 24,
-    ),
-    const CrackerItem(
-      id: 'rocket-002',
-      name: 'Mini Rocket Kit',
-      category: 'Rockets',
-      unitPrice: 190.0,
-      stockAvailable: 16,
-    ),
-    const CrackerItem(
-      id: 'flower-003',
-      name: 'Flower Pot Combo',
-      category: 'Flower Pots',
-      unitPrice: 210.0,
-      stockAvailable: 12,
-    ),
-    const CrackerItem(
-      id: 'ground-004',
-      name: 'Ground Chakkar',
-      category: 'Ground Crackers',
-      unitPrice: 260.0,
-      stockAvailable: 10,
-    ),
-    const CrackerItem(
-      id: 'bomb-005',
-      name: 'Electric Bomb',
-      category: 'Specials',
-      unitPrice: 320.0,
-      stockAvailable: 8,
-    ),
-  ];
+  static const List<CrackerItem> defaultCatalog = [];
 
   final List<CrackerItem> _catalog;
   final List<InvoiceLineItem> _cart = [];
@@ -92,6 +59,23 @@ class SalesViewModel extends ChangeNotifier {
     return grossTotal + taxTotal - safeDiscount;
   }
 
+  Future<void> loadCatalog() async {
+    try {
+      final items = await FirestoreService.instance.fetchInventoryItems(
+        userId: FirebaseAuth.instance.currentUser?.uid,
+      );
+
+      _catalog
+        ..clear()
+        ..addAll(items);
+      _errorMessage = null;
+      notifyListeners();
+    } catch (error) {
+      _errorMessage = 'Unable to load inventory: $error';
+      notifyListeners();
+    }
+  }
+
   void clearError() {
     if (_errorMessage != null) {
       _errorMessage = null;
@@ -127,6 +111,36 @@ class SalesViewModel extends ChangeNotifier {
     if (item.category.trim().isEmpty) {
       throw StateError('Category cannot be empty.');
     }
+
+    final duplicateIndex = _catalog.indexWhere(
+      (existing) =>
+          existing.category == item.category &&
+          existing.subCategory == item.subCategory &&
+          existing.name.trim().toLowerCase() == item.name.trim().toLowerCase(),
+    );
+
+    if (duplicateIndex >= 0) {
+      final existingItem = _catalog[duplicateIndex];
+      final mergedItem = existingItem.copyWith(
+        stockAvailable: existingItem.stockAvailable + item.stockAvailable,
+        unitPrice: existingItem.unitPrice == 0.0 ? item.unitPrice : existingItem.unitPrice,
+        itemCode: existingItem.itemCode ?? item.itemCode,
+      );
+
+      _catalog[duplicateIndex] = mergedItem;
+      _errorMessage = null;
+      notifyListeners();
+
+      FirestoreService.instance.saveInventoryItem(
+        mergedItem,
+        userId: FirebaseAuth.instance.currentUser?.uid,
+      ).catchError((error) {
+        _errorMessage = 'Item updated locally but cloud sync failed: $error';
+        notifyListeners();
+      });
+      return;
+    }
+
     if (_catalog.any((existing) => existing.id == item.id)) {
       throw StateError('An item with the same ID already exists.');
     }
@@ -134,6 +148,14 @@ class SalesViewModel extends ChangeNotifier {
     _catalog.add(item);
     _errorMessage = null;
     notifyListeners();
+
+    FirestoreService.instance.saveInventoryItem(
+      item,
+      userId: FirebaseAuth.instance.currentUser?.uid,
+    ).catchError((error) {
+      _errorMessage = 'Item saved locally but cloud sync failed: $error';
+      notifyListeners();
+    });
   }
 
   void addToCart(CrackerItem item) {
@@ -198,7 +220,7 @@ class SalesViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  Invoice checkout() {
+  Future<Invoice> checkout() async {
     if (_cart.isEmpty) {
       _errorMessage = 'Your cart is empty. Add items before generating the invoice.';
       notifyListeners();
@@ -233,6 +255,16 @@ class SalesViewModel extends ChangeNotifier {
     customerPhoneController.clear();
     _errorMessage = null;
     notifyListeners();
+
+    try {
+      await FirestoreService.instance.saveInvoice(
+        invoice,
+        userId: FirebaseAuth.instance.currentUser?.uid,
+      );
+    } catch (error) {
+      _errorMessage = 'Invoice saved locally but cloud sync failed: $error';
+      notifyListeners();
+    }
 
     return invoice;
   }

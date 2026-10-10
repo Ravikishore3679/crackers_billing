@@ -3,9 +3,14 @@ class CrackerItem {
     required this.id,
     required this.name,
     required this.category,
+    this.subCategory = '',
     required this.unitPrice,
     required this.stockAvailable,
     this.taxRate = 0.18,
+    this.categoryCode,
+    this.subCategoryCode,
+    this.variantCode,
+    this.itemCode,
   })  : assert(unitPrice >= 0, 'unitPrice must be non-negative'),
         assert(stockAvailable >= 0, 'stockAvailable must be non-negative'),
         assert(taxRate >= 0, 'taxRate must be non-negative');
@@ -13,6 +18,11 @@ class CrackerItem {
   final String id;
   final String name;
   final String category;
+  final String subCategory;
+  final String? categoryCode;
+  final String? subCategoryCode;
+  final String? variantCode;
+  final String? itemCode;
   final double unitPrice;
   final int stockAvailable;
   final double taxRate;
@@ -21,17 +31,27 @@ class CrackerItem {
     String? id,
     String? name,
     String? category,
+    String? subCategory,
     double? unitPrice,
     int? stockAvailable,
     double? taxRate,
+    String? categoryCode,
+    String? subCategoryCode,
+    String? variantCode,
+    String? itemCode,
   }) {
     return CrackerItem(
       id: id ?? this.id,
       name: name ?? this.name,
       category: category ?? this.category,
+      subCategory: subCategory ?? this.subCategory,
       unitPrice: unitPrice ?? this.unitPrice,
       stockAvailable: stockAvailable ?? this.stockAvailable,
       taxRate: taxRate ?? this.taxRate,
+      categoryCode: categoryCode ?? this.categoryCode,
+      subCategoryCode: subCategoryCode ?? this.subCategoryCode,
+      variantCode: variantCode ?? this.variantCode,
+      itemCode: itemCode ?? this.itemCode,
     );
   }
 
@@ -40,6 +60,11 @@ class CrackerItem {
       'id': id,
       'name': name,
       'category': category,
+      'subCategory': subCategory,
+      'categoryCode': categoryCode,
+      'subCategoryCode': subCategoryCode,
+      'variantCode': variantCode,
+      'itemCode': itemCode,
       'unitPrice': unitPrice,
       'stockAvailable': stockAvailable,
       'taxRate': taxRate,
@@ -51,6 +76,11 @@ class CrackerItem {
       id: map['id'] as String,
       name: map['name'] as String,
       category: map['category'] as String,
+      subCategory: map['subCategory'] as String? ?? '',
+      categoryCode: map['categoryCode'] as String?,
+      subCategoryCode: map['subCategoryCode'] as String?,
+      variantCode: map['variantCode'] as String?,
+      itemCode: map['itemCode'] as String?,
       unitPrice: (map['unitPrice'] as num).toDouble(),
       stockAvailable: map['stockAvailable'] as int,
       taxRate: (map['taxRate'] as num?)?.toDouble() ?? 0.18,
@@ -67,6 +97,11 @@ class CrackerItem {
         other.id == id &&
         other.name == name &&
         other.category == category &&
+        other.subCategory == subCategory &&
+        other.categoryCode == categoryCode &&
+        other.subCategoryCode == subCategoryCode &&
+        other.variantCode == variantCode &&
+        other.itemCode == itemCode &&
         other.unitPrice == unitPrice &&
         other.stockAvailable == stockAvailable &&
         other.taxRate == taxRate;
@@ -74,6 +109,18 @@ class CrackerItem {
 
   @override
   int get hashCode {
-    return Object.hash(id, name, category, unitPrice, stockAvailable, taxRate);
+    return Object.hash(
+      id,
+      name,
+      category,
+      subCategory,
+      categoryCode,
+      subCategoryCode,
+      variantCode,
+      itemCode,
+      unitPrice,
+      stockAvailable,
+      taxRate,
+    );
   }
 }

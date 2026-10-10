@@ -2,9 +2,10 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../services/inventory_code_generator.dart';
 import '../view_models/sales_view_model.dart';
-import 'add_item_screen.dart';
-import 'invoice_entry_screen.dart';
+import 'expense_screen.dart';
+import 'inventory_screen.dart';
 import 'reports_screen.dart';
 import 'sales_screen.dart';
 
@@ -25,33 +26,37 @@ class _AppShellState extends State<AppShell> {
       label: 'Sales',
     ),
     NavigationDestination(
-      icon: Icon(Icons.add_box_outlined),
-      selectedIcon: Icon(Icons.add_box_rounded),
-      label: 'Add Item',
+      icon: Icon(Icons.inventory_2_outlined),
+      selectedIcon: Icon(Icons.inventory_2_rounded),
+      label: 'Inventory',
+    ),
+    NavigationDestination(
+      icon: Icon(Icons.attach_money_rounded),
+      selectedIcon: Icon(Icons.attach_money_rounded),
+      label: 'Expense',
     ),
     NavigationDestination(
       icon: Icon(Icons.bar_chart_rounded),
       selectedIcon: Icon(Icons.bar_chart_rounded),
       label: 'Reports',
     ),
-    NavigationDestination(
-      icon: Icon(Icons.receipt_long_outlined),
-      selectedIcon: Icon(Icons.receipt_long_rounded),
-      label: 'Invoice',
-    ),
   ];
 
   static final List<Widget> _screens = [
     const SalesScreen(),
-    const AddItemScreen(),
+    const InventoryScreen(),
+    const ExpenseScreen(),
     const ReportsScreen(),
-    const InvoiceEntryScreen(),
   ];
 
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider<SalesViewModel>(
-      create: (_) => SalesViewModel(),
+      create: (_) {
+        final viewModel = SalesViewModel();
+        InventoryCatalogManager.loadFromFirestore();
+        return viewModel;
+      },
       child: Scaffold(
         appBar: AppBar(
           title: const Text('Crackers Sales & Invoices'),

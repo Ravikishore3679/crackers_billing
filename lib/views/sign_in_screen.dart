@@ -1,5 +1,3 @@
-import 'package:crackers_billing/google_sign_in_web_button.dart'
-    as google_sign_in_web;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -81,6 +79,15 @@ class _SignInScreenState extends State<SignInScreen> {
     setState(() => _isLoading = true);
 
     try {
+      if (kIsWeb) {
+        final provider = GoogleAuthProvider()
+          ..addScope('email')
+          ..addScope('profile');
+
+        await FirebaseAuth.instance.signInWithPopup(provider);
+        return;
+      }
+
       final googleAccount = await signInWithGoogleFlow<GoogleSignInAccount>(
         supportsAuthenticate: GoogleSignIn.instance.supportsAuthenticate(),
       );
@@ -261,17 +268,11 @@ class _SignInScreenState extends State<SignInScreen> {
                           ],
                         ),
                         const SizedBox(height: 16),
-                        if (kIsWeb && !GoogleSignIn.instance.supportsAuthenticate())
-                          SizedBox(
-                            height: 48,
-                            child: google_sign_in_web.renderButton(),
-                          )
-                        else
-                          OutlinedButton.icon(
-                            onPressed: _isLoading ? null : _signInWithGoogle,
-                            icon: const Icon(Icons.g_mobiledata_rounded),
-                            label: const Text('Continue with Google'),
-                          ),
+                        OutlinedButton.icon(
+                          onPressed: _isLoading ? null : _signInWithGoogle,
+                          icon: const Icon(Icons.g_mobiledata_rounded),
+                          label: const Text('Continue with Google'),
+                        ),
                       ],
                     ),
                   ),

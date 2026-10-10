@@ -201,15 +201,17 @@ class InvoiceEntryScreen extends StatelessWidget {
               FilledButton.icon(
                 onPressed: viewModel.cart.isEmpty
                     ? null
-                    : () {
+                    : () async {
                         try {
-                          final invoice = viewModel.checkout();
+                          final invoice = await viewModel.checkout();
+                          if (!context.mounted) return;
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
                               content: Text('Invoice created: ${invoice.id}'),
                             ),
                           );
                         } catch (error) {
+                          if (!context.mounted) return;
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
                               content: Text(error.toString()),

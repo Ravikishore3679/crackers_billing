@@ -8,6 +8,7 @@ import 'package:share_plus/share_plus.dart';
 
 import '../models/cracker_item.dart';
 import '../models/invoice.dart';
+import '../services/inventory_code_generator.dart';
 import '../view_models/sales_view_model.dart';
 
 class SalesScreen extends StatelessWidget {
@@ -80,6 +81,178 @@ class _CatalogPanel extends StatefulWidget {
 class _CatalogPanelState extends State<_CatalogPanel> {
   final TextEditingController _searchController = TextEditingController();
 
+  void _showAddItemDialog(BuildContext context, SalesViewModel viewModel) {
+    final nameController = TextEditingController();
+    final categoryController = TextEditingController();
+    final subCategoryController = TextEditingController();
+    final priceController = TextEditingController();
+    final stockController = TextEditingController();
+    final codeController = TextEditingController();
+
+    void updateCode() {
+      final category = categoryController.text.trim();
+      final subCategory = subCategoryController.text.trim();
+      final name = nameController.text.trim();
+      if (category.isEmpty || subCategory.isEmpty || name.isEmpty) {
+        codeController.text = 'Auto code';
+        return;
+      }
+
+      codeController.text = InventoryCodeGenerator.generateAutoCode(
+        category: category,
+        subCategory: subCategory,
+        itemName: name,
+        itemSequence: (int.tryParse(stockController.text.trim()) ?? 0).clamp(0, 9),
+      );
+    }
+
+    final categoryField = TextField(
+      controller: categoryController,
+      onChanged: (_) => updateCode(),
+      decoration: const InputDecoration(
+        labelText: 'Category',
+        hintText: 'Example: Sparklers',
+        border: OutlineInputBorder(),
+      ),
+    );
+
+    final subCategoryField = TextField(
+      controller: subCategoryController,
+      onChanged: (_) => updateCode(),
+      decoration: const InputDecoration(
+        labelText: 'Subcategory',
+        hintText: 'Example: Standard company',
+        border: OutlineInputBorder(),
+      ),
+    );
+
+    final nameField = TextField(
+      controller: nameController,
+      onChanged: (_) => updateCode(),
+      decoration: const InputDecoration(
+        labelText: 'Name',
+        hintText: 'Example: 15cm, Electric, Crackling',
+        border: OutlineInputBorder(),
+      ),
+    );
+
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Add Inventory Item'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                categoryField,
+                const SizedBox(height: 12),
+                subCategoryField,
+                const SizedBox(height: 12),
+                nameField,
+                const SizedBox(height: 12),
+                TextField(
+                  controller: stockController,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'Quantity',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: priceController,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  decoration: const InputDecoration(
+                    labelText: 'Price',
+                    prefixText: '₹ ',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: codeController,
+                  readOnly: true,
+                  decoration: const InputDecoration(
+                    labelText: 'Code',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () {
+                try {
+                  final category = categoryController.text.trim();
+                  final subCategory = subCategoryController.text.trim();
+                  final name = nameController.text.trim();
+                  final quantity = int.tryParse(stockController.text.trim()) ?? 0;
+                  final price = double.tryParse(priceController.text.trim()) ?? 0.0;
+
+                  if (category.isEmpty || subCategory.isEmpty || name.isEmpty) {
+                    throw StateError('Category, subcategory and item name are required.');
+                  }
+
+                  final categoryIndex = InventoryCodeGenerator.resolveCategoryIndex(category);
+                  final subCategoryIndex = InventoryCodeGenerator.resolveSubCategoryIndex(subCategory);
+                  final variantIndex = InventoryCodeGenerator.resolveVariantIndex(name);
+                  final safeSequence = quantity.clamp(0, 9);
+
+                  final itemCode = InventoryCodeGenerator.generateAutoCode(
+                    category: category,
+                    subCategory: subCategory,
+                    itemName: name,
+                    itemSequence: safeSequence,
+                  );
+
+                  final item = CrackerItem(
+                    id: DateTime.now().millisecondsSinceEpoch.toString(),
+                    name: name,
+                    category: category,
+                    subCategory: subCategory,
+                    unitPrice: price,
+                    stockAvailable: quantity,
+                    categoryCode: InventoryCodeGenerator.generateCategoryCode(categoryIndex),
+                    subCategoryCode: InventoryCodeGenerator.generateSubcategoryCode(
+                      categoryIndex,
+                      subCategoryIndex,
+                    ),
+                    variantCode: InventoryCodeGenerator.generateVariantCode(
+                      categoryIndex,
+                      subCategoryIndex,
+                      variantIndex,
+                    ),
+                    itemCode: itemCode,
+                  );
+
+                  viewModel.addCatalogItem(item);
+                  Navigator.of(dialogContext).pop();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Added ${item.name} with code $itemCode')),
+                  );
+                } catch (error) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(error.toString()),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   void dispose() {
     _searchController.dispose();
@@ -121,6 +294,12 @@ class _CatalogPanelState extends State<_CatalogPanel> {
                   style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
                 ),
                 const Spacer(),
+                TextButton.icon(
+                  onPressed: () => _showAddItemDialog(context, widget.viewModel),
+                  icon: const Icon(Icons.add_circle_outline_rounded),
+                  label: const Text('Add Item'),
+                ),
+                const SizedBox(width: 8),
                 Chip(
                   label: Text('${filteredItems.length} items'),
                 ),
@@ -541,9 +720,10 @@ class _CartPanel extends StatelessWidget {
               FilledButton.icon(
                 onPressed: viewModel.cart.isEmpty
                     ? null
-                    : () {
+                    : () async {
                         try {
-                          final invoice = viewModel.checkout();
+                          final invoice = await viewModel.checkout();
+                          if (!context.mounted) return;
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
                               content: Text(
@@ -552,6 +732,7 @@ class _CartPanel extends StatelessWidget {
                             ),
                           );
                         } catch (error) {
+                          if (!context.mounted) return;
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
                               content: Text(error.toString()),
