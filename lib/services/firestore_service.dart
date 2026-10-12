@@ -11,6 +11,24 @@ class FirestoreService {
 
   static final FirestoreService instance = FirestoreService._();
 
+  static String? resolveUserId({String? userId}) {
+    final explicitUserId = userId?.trim();
+    if (explicitUserId != null && explicitUserId.isNotEmpty) {
+      return explicitUserId;
+    }
+
+    if (Firebase.apps.isEmpty) {
+      return null;
+    }
+
+    final currentUserId = FirebaseAuth.instance.currentUser?.uid.trim();
+    if (currentUserId != null && currentUserId.isNotEmpty) {
+      return currentUserId;
+    }
+
+    return null;
+  }
+
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
   CollectionReference<Map<String, dynamic>> get _salesCollection =>
@@ -27,7 +45,10 @@ class FirestoreService {
       return;
     }
 
-    final uid = userId ?? FirebaseAuth.instance.currentUser?.uid ?? 'anonymous';
+    final uid = resolveUserId(userId: userId);
+    if (uid == null || uid.isEmpty) {
+      return;
+    }
 
     await _inventoryCollection.doc(item.id).set({
       'id': item.id,
@@ -46,19 +67,57 @@ class FirestoreService {
     }, SetOptions(merge: true));
   }
 
+  Future<void> deleteInventoryItem(String itemId, {String? userId}) async {
+    if (Firebase.apps.isEmpty) {
+      return;
+    }
+
+    final uid = resolveUserId(userId: userId);
+    if (uid == null || uid.isEmpty) {
+      return;
+    }
+
+    await _inventoryCollection.doc(itemId).delete();
+  }
+
   Future<List<CrackerItem>> fetchInventoryItems({String? userId}) async {
     if (Firebase.apps.isEmpty) {
       return const [];
     }
 
-    Query<Map<String, dynamic>> query = _inventoryCollection.orderBy('name');
+    final resolvedUserId = resolveUserId(userId: userId);
+    final docsById = <String, QueryDocumentSnapshot<Map<String, dynamic>>>{};
 
-    if (userId != null) {
-      query = query.where('userId', isEqualTo: userId);
+    final queries = <Future<QuerySnapshot<Map<String, dynamic>>>>[];
+    if (resolvedUserId != null) {
+      queries.add(_inventoryCollection.where('userId', isEqualTo: resolvedUserId).get());
+      queries.add(_inventoryCollection.where('userId', isEqualTo: 'anonymous').get());
+    } else {
+      queries.add(_inventoryCollection.where('userId', isEqualTo: 'anonymous').get());
     }
 
-    final snapshot = await query.get();
-    return snapshot.docs.map((doc) {
+    for (final snapshot in await Future.wait(queries)) {
+      for (final doc in snapshot.docs) {
+        docsById.putIfAbsent(doc.id, () => doc);
+      }
+    }
+
+    if (resolvedUserId != null) {
+      final anonymousItems = docsById.values
+          .where((doc) => doc.data()['userId'] == 'anonymous')
+          .toList();
+
+      for (final doc in anonymousItems) {
+        final data = doc.data();
+        await _inventoryCollection.doc(doc.id).set({
+          ...data,
+          'userId': resolvedUserId,
+          'updatedAt': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true));
+      }
+    }
+
+    final items = docsById.values.map((doc) {
       final data = doc.data();
       return CrackerItem(
         id: data['id'] as String? ?? doc.id,
@@ -73,7 +132,10 @@ class FirestoreService {
         stockAvailable: (data['stockAvailable'] as num?)?.toInt() ?? 0,
         taxRate: (data['taxRate'] as num?)?.toDouble() ?? 0.18,
       );
-    }).toList();
+    }).toList()
+      ..sort((a, b) => a.name.compareTo(b.name));
+
+    return items;
   }
 
   Future<void> saveCategoryCatalog(Map<String, List<String>> catalog, {String? userId}) async {
@@ -81,7 +143,11 @@ class FirestoreService {
       return;
     }
 
-    final uid = userId ?? FirebaseAuth.instance.currentUser?.uid ?? 'anonymous';
+    final uid = resolveUserId(userId: userId);
+    if (uid == null || uid.isEmpty) {
+      return;
+    }
+
     await _settingsCollection.doc('inventory_catalog').set({
       'catalog': catalog.map((key, value) => MapEntry(key, value)),
       'userId': uid,

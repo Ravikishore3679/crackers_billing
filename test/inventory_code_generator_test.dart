@@ -26,23 +26,23 @@ void main() {
       expect(InventoryCodeGenerator.generateItemCode(1, 2, 5, 2), '1252');
     });
 
-    test('does not collapse different product names to the same generated code', () {
+    test('uses the supplied sequence for sequential category codes', () {
       final firstCode = InventoryCodeGenerator.generateAutoCode(
         category: 'Sparklers',
-        subCategory: 'Standard company',
-        itemName: 'Silver 15cm',
-        itemSequence: 9,
+        subCategory: 'Standard',
+        itemName: '7cm',
+        itemSequence: 1,
       );
 
       final secondCode = InventoryCodeGenerator.generateAutoCode(
-        category: 'Rockets',
-        subCategory: 'Premium',
-        itemName: 'Mini Rocket',
-        itemSequence: 9,
+        category: 'Sparklers',
+        subCategory: 'Standard',
+        itemName: '15cm-plane',
+        itemSequence: 2,
       );
 
-      expect(firstCode.startsWith('1'), isTrue);
-      expect(secondCode.startsWith('2'), isTrue);
+      expect(firstCode, 'SP-STD-001');
+      expect(secondCode, 'SP-STD-002');
       expect(firstCode, isNot(secondCode));
     });
 

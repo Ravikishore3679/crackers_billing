@@ -13,7 +13,80 @@ class SalesViewModel extends ChangeNotifier {
     Future.microtask(loadCatalog);
   }
 
-  static const List<CrackerItem> defaultCatalog = [];
+  static List<CrackerItem> get defaultCatalog => [
+    CrackerItem(
+      id: 'seed-sparklers-standard-15cm',
+      name: 'Silver Sparklers 15cm',
+      category: 'Sparklers',
+      subCategory: 'Standard',
+      unitPrice: 18.0,
+      stockAvailable: 50,
+      itemCode: 'SP-STD-001',
+      categoryCode: 'SP',
+      subCategoryCode: 'STD',
+      variantCode: '15',
+    ),
+    CrackerItem(
+      id: 'seed-sparklers-premium-15cm',
+      name: 'Premium Sparklers 15cm',
+      category: 'Sparklers',
+      subCategory: 'Premium',
+      unitPrice: 25.0,
+      stockAvailable: 30,
+      itemCode: 'SP-PRE-001',
+      categoryCode: 'SP',
+      subCategoryCode: 'PRE',
+      variantCode: '15',
+    ),
+    CrackerItem(
+      id: 'seed-rockets-standard-30cm',
+      name: 'Rocket 30cm',
+      category: 'Rockets',
+      subCategory: 'Standard',
+      unitPrice: 35.0,
+      stockAvailable: 20,
+      itemCode: 'RK-STD-001',
+      categoryCode: 'RK',
+      subCategoryCode: 'STD',
+      variantCode: '30',
+    ),
+    CrackerItem(
+      id: 'seed-flower-pots-special',
+      name: 'Flower Pot Special',
+      category: 'Flower Pots',
+      subCategory: 'Special',
+      unitPrice: 40.0,
+      stockAvailable: 15,
+      itemCode: 'FP-SPC-001',
+      categoryCode: 'FP',
+      subCategoryCode: 'SPC',
+      variantCode: 'SPC',
+    ),
+    CrackerItem(
+      id: 'seed-ground-crackers-mini',
+      name: 'Ground Crackers Mini',
+      category: 'Ground Crackers',
+      subCategory: 'Mini',
+      unitPrice: 55.0,
+      stockAvailable: 12,
+      itemCode: 'GC-MIN-001',
+      categoryCode: 'GC',
+      subCategoryCode: 'MIN',
+      variantCode: 'MIN',
+    ),
+    CrackerItem(
+      id: 'seed-specials-electric',
+      name: 'Electric Special',
+      category: 'Specials',
+      subCategory: 'Electric',
+      unitPrice: 65.0,
+      stockAvailable: 10,
+      itemCode: 'SPC-ELE-001',
+      categoryCode: 'SPC',
+      subCategoryCode: 'ELE',
+      variantCode: 'ELE',
+    ),
+  ];
 
   final List<CrackerItem> _catalog;
   final List<InvoiceLineItem> _cart = [];
@@ -66,14 +139,40 @@ class SalesViewModel extends ChangeNotifier {
         userId: FirebaseAuth.instance.currentUser?.uid,
       );
 
-      _catalog
-        ..clear()
-        ..addAll(items);
+      if (items.isEmpty && FirebaseAuth.instance.currentUser != null) {
+        await seedDefaultCatalog();
+        final seededItems = await FirestoreService.instance.fetchInventoryItems(
+          userId: FirebaseAuth.instance.currentUser?.uid,
+        );
+        _catalog
+          ..clear()
+          ..addAll(seededItems);
+      } else {
+        _catalog
+          ..clear()
+          ..addAll(items);
+      }
       _errorMessage = null;
       notifyListeners();
     } catch (error) {
       _errorMessage = 'Unable to load inventory: $error';
       notifyListeners();
+    }
+  }
+
+  Future<void> seedDefaultCatalog() async {
+    if (FirebaseAuth.instance.currentUser == null || Firebase.apps.isEmpty) {
+      return;
+    }
+
+    for (final item in defaultCatalog) {
+      final existing = _catalog.any((candidate) => candidate.id == item.id);
+      if (!existing) {
+        await FirestoreService.instance.saveInventoryItem(
+          item,
+          userId: FirebaseAuth.instance.currentUser?.uid,
+        );
+      }
     }
   }
 
@@ -124,7 +223,7 @@ class SalesViewModel extends ChangeNotifier {
       final existingItem = _catalog[duplicateIndex];
       final mergedItem = existingItem.copyWith(
         stockAvailable: existingItem.stockAvailable + item.stockAvailable,
-        unitPrice: existingItem.unitPrice == 0.0 ? item.unitPrice : existingItem.unitPrice,
+        unitPrice: item.unitPrice > 0 ? item.unitPrice : existingItem.unitPrice,
         itemCode: existingItem.itemCode ?? item.itemCode,
       );
 
@@ -191,6 +290,27 @@ class SalesViewModel extends ChangeNotifier {
   void removeFromCart(CrackerItem item) {
     _cart.removeWhere((lineItem) => lineItem.crackerItem.id == item.id);
     notifyListeners();
+  }
+
+  void removeInventoryItem(String itemId) {
+    final index = _catalog.indexWhere((item) => item.id == itemId);
+    if (index == -1) {
+      return;
+    }
+
+    _catalog.removeAt(index);
+    _errorMessage = null;
+    notifyListeners();
+
+    if (Firebase.apps.isNotEmpty) {
+      FirestoreService.instance.deleteInventoryItem(
+        itemId,
+        userId: FirebaseAuth.instance.currentUser?.uid,
+      ).catchError((error) {
+        _errorMessage = 'Item removed locally but cloud sync failed: $error';
+        notifyListeners();
+      });
+    }
   }
 
   void updateQuantity(String itemId, int quantity) {

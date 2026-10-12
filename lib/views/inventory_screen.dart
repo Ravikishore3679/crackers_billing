@@ -21,7 +21,11 @@ class InventoryScreen extends StatelessWidget {
 
     return Scaffold(
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showAddItemDialog(context, viewModel),
+        onPressed: () => Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => PurchaseOrderEntryScreen(viewModel: viewModel),
+          ),
+        ),
         icon: const Icon(Icons.add_rounded),
         label: const Text('Add Item'),
         backgroundColor: Theme.of(context).colorScheme.primary,
@@ -129,78 +133,94 @@ class InventoryScreen extends StatelessWidget {
                         )
                       : ListView.separated(
                           itemCount: viewModel.catalog.length,
-                          separatorBuilder: (_, _) => const SizedBox(height: 12),
+                          separatorBuilder: (_, _) => const SizedBox(height: 8),
                           itemBuilder: (context, index) {
                             final item = viewModel.catalog[index];
                             final lowStock = item.stockAvailable <= 5;
 
                             return Container(
-                              padding: EdgeInsets.all(isCompact ? 12 : 16),
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
                               decoration: BoxDecoration(
                                 color: Theme.of(context).colorScheme.surface,
-                                borderRadius: BorderRadius.circular(18),
+                                borderRadius: BorderRadius.circular(14),
                                 border: Border.all(
-                                  color: lowStock ? Colors.orange.withValues(alpha: 0.4) : Colors.transparent,
+                                  color: lowStock ? Colors.orange.withValues(alpha: 0.35) : Colors.transparent,
                                 ),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: Colors.black.withValues(alpha: 0.04),
-                                    blurRadius: 8,
-                                    offset: const Offset(0, 3),
+                                    color: Colors.black.withValues(alpha: 0.03),
+                                    blurRadius: 6,
+                                    offset: const Offset(0, 2),
                                   ),
                                 ],
                               ),
                               child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.center,
                                 children: [
-                                  CircleAvatar(
-                                    radius: isCompact ? 20 : 26,
-                                    backgroundColor: lowStock ? Colors.orange.withValues(alpha: 0.12) : Colors.teal.withValues(alpha: 0.12),
+                                  Container(
+                                    width: 28,
+                                    height: 28,
+                                    decoration: BoxDecoration(
+                                      color: lowStock ? Colors.orange.withValues(alpha: 0.12) : Colors.teal.withValues(alpha: 0.12),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    alignment: Alignment.center,
                                     child: Text(
                                       item.name.isNotEmpty ? item.name[0].toUpperCase() : 'I',
-                                      style: const TextStyle(fontWeight: FontWeight.bold),
+                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
                                     ),
                                   ),
-                                  const SizedBox(width: 16),
+                                  const SizedBox(width: 10),
                                   Expanded(
                                     child: Column(
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
                                         Text(
                                           item.name,
-                                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                                          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
                                         ),
-                                        const SizedBox(height: 4),
+                                        const SizedBox(height: 2),
                                         Text(
                                           '${item.category} • ${item.subCategory.isEmpty ? 'General' : item.subCategory}',
-                                          style: TextStyle(color: Colors.grey.shade700),
+                                          style: TextStyle(color: Colors.grey.shade700, fontSize: 11),
                                         ),
-                                        const SizedBox(height: 4),
+                                        const SizedBox(height: 2),
                                         Text(
                                           item.itemCode ?? 'Code pending',
                                           style: const TextStyle(
                                             fontWeight: FontWeight.w600,
-                                            letterSpacing: 0.6,
+                                            letterSpacing: 0.4,
+                                            fontSize: 10,
                                           ),
                                         ),
                                       ],
                                     ),
                                   ),
+                                  const SizedBox(width: 8),
                                   Column(
                                     crossAxisAlignment: CrossAxisAlignment.end,
                                     children: [
                                       Text(
                                         '₹${item.unitPrice.toStringAsFixed(2)}',
-                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17),
+                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
                                       ),
-                                      const SizedBox(height: 6),
+                                      const SizedBox(height: 4),
                                       Text(
-                                        '${item.stockAvailable} in stock',
+                                        '${item.stockAvailable}',
                                         style: TextStyle(
                                           color: lowStock ? Colors.orange.shade800 : Colors.green.shade700,
-                                          fontWeight: FontWeight.w600,
+                                          fontWeight: FontWeight.w700,
+                                          fontSize: 11,
                                         ),
                                       ),
                                     ],
+                                  ),
+                                  IconButton(
+                                    tooltip: 'Remove item',
+                                    icon: const Icon(Icons.delete_outline_rounded, size: 18),
+                                    color: Colors.red.shade700,
+                                    constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                                    onPressed: () => _confirmDeleteItem(context, viewModel, item),
                                   ),
                                 ],
                               ),
@@ -213,6 +233,35 @@ class InventoryScreen extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+
+  static void _confirmDeleteItem(BuildContext context, SalesViewModel viewModel, CrackerItem item) {
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Remove inventory item?'),
+          content: Text('Delete ${item.name} from the inventory list?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Cancel'),
+            ),
+            FilledButton.icon(
+              onPressed: () {
+                viewModel.removeInventoryItem(item.id);
+                Navigator.of(dialogContext).pop();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('${item.name} removed from inventory')),
+                );
+              },
+              icon: const Icon(Icons.delete_forever_rounded),
+              label: const Text('Delete'),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -239,11 +288,16 @@ class InventoryScreen extends StatelessWidget {
         return;
       }
 
+      final nextSequence = viewModel.catalog
+              .where((item) => item.category == category && item.subCategory == subCategory)
+              .length +
+          1;
+
       codeController.text = InventoryCodeGenerator.generateAutoCode(
         category: category,
         subCategory: subCategory,
         itemName: name,
-        itemSequence: 0,
+        itemSequence: nextSequence,
       );
     }
 
@@ -392,11 +446,15 @@ class InventoryScreen extends StatelessWidget {
                       final categoryIndex = InventoryCodeGenerator.resolveCategoryIndex(category);
                       final subCategoryIndex = InventoryCodeGenerator.resolveSubCategoryIndex(subCategory);
                       final variantIndex = InventoryCodeGenerator.resolveVariantIndex(name);
+                      final nextSequence = viewModel.catalog
+                              .where((item) => item.category == category && item.subCategory == subCategory)
+                              .length +
+                          1;
                       final itemCode = InventoryCodeGenerator.generateAutoCode(
                         category: category,
                         subCategory: subCategory,
                         itemName: name,
-                        itemSequence: 0,
+                        itemSequence: nextSequence,
                       );
 
                       final item = CrackerItem(
@@ -446,6 +504,8 @@ class InventoryScreen extends StatelessWidget {
   static void _showManageCategoriesDialog(BuildContext context) {
     final categoryController = TextEditingController();
     final subCategoryController = TextEditingController();
+    final pageController = PageController();
+    var pageIndex = 0;
     String selectedCategory = InventoryCatalogManager.categories.isNotEmpty
         ? InventoryCatalogManager.categories.first
         : '';
@@ -460,27 +520,80 @@ class InventoryScreen extends StatelessWidget {
                 ? <String>[]
                 : InventoryCatalogManager.subcategoriesFor(selectedCategory);
 
-            return AlertDialog(
-              title: const Text('Manage Categories'),
-              content: SizedBox(
-                width: 420,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
+            Widget buildAddCell({
+              required TextEditingController controller,
+              required String label,
+              required VoidCallback onAdd,
+            }) {
+              return Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Theme.of(innerContext).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
                   children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextField(
-                            controller: categoryController,
-                            decoration: const InputDecoration(
-                              labelText: 'New category',
-                              border: OutlineInputBorder(),
-                            ),
-                          ),
+                    Expanded(
+                      child: TextField(
+                        controller: controller,
+                        decoration: InputDecoration(
+                          labelText: label,
+                          border: const OutlineInputBorder(),
+                          isDense: true,
                         ),
-                        const SizedBox(width: 8),
-                        TextButton(
-                          onPressed: () {
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    FilledButton.tonal(
+                      onPressed: onAdd,
+                      child: const Text('Add'),
+                    ),
+                  ],
+                ),
+              );
+            }
+
+            return AlertDialog(
+              title: Row(
+                children: [
+                  const Expanded(child: Text('Manage Categories')),
+                  TextButton.icon(
+                    onPressed: () {
+                      if (pageIndex == 0) {
+                        pageController.animateToPage(
+                          1,
+                          duration: const Duration(milliseconds: 250),
+                          curve: Curves.easeInOut,
+                        );
+                        setState(() => pageIndex = 1);
+                      } else {
+                        pageController.animateToPage(
+                          0,
+                          duration: const Duration(milliseconds: 250),
+                          curve: Curves.easeInOut,
+                        );
+                        setState(() => pageIndex = 0);
+                      }
+                    },
+                    icon: Icon(pageIndex == 0 ? Icons.folder_copy_rounded : Icons.category_rounded),
+                    label: Text(pageIndex == 0 ? 'Subcategories' : 'Categories'),
+                  ),
+                ],
+              ),
+              content: SizedBox(
+                width: 520,
+                height: 440,
+                child: PageView(
+                  controller: pageController,
+                  onPageChanged: (value) => setState(() => pageIndex = value),
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        buildAddCell(
+                          controller: categoryController,
+                          label: 'New category',
+                          onAdd: () {
                             final newCategory = categoryController.text.trim();
                             if (newCategory.isEmpty) {
                               return;
@@ -491,73 +604,85 @@ class InventoryScreen extends StatelessWidget {
                               selectedCategory = newCategory;
                             });
                           },
-                          child: const Text('Add'),
                         ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: DropdownButtonFormField<String>(
-                            initialValue: categories.contains(selectedCategory) ? selectedCategory : null,
-                            decoration: const InputDecoration(
-                              labelText: 'Category',
-                              border: OutlineInputBorder(),
-                            ),
-                            items: categories
-                                .map(
-                                  (item) => DropdownMenuItem<String>(
-                                    value: item,
-                                    child: Text(item),
+                        const SizedBox(height: 12),
+                        const Text('Categories', style: TextStyle(fontWeight: FontWeight.w700)),
+                        const SizedBox(height: 8),
+                        if (categories.isEmpty)
+                          const Text('No categories yet.')
+                        else
+                          Expanded(
+                            child: ListView.separated(
+                              itemCount: categories.length,
+                              separatorBuilder: (_, _) => const SizedBox(height: 8),
+                              itemBuilder: (context, index) {
+                                final item = categories[index];
+                                return Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                  decoration: BoxDecoration(
+                                    color: Theme.of(innerContext).colorScheme.surfaceContainerLow,
+                                    borderRadius: BorderRadius.circular(12),
                                   ),
-                                )
-                                .toList(),
-                            onChanged: (value) {
-                              if (value == null) return;
-                              setState(() {
-                                selectedCategory = value;
-                              });
-                            },
-                          ),
-                        ),
-                        if (selectedCategory.isNotEmpty) ...[
-                          const SizedBox(width: 8),
-                          IconButton(
-                            tooltip: 'Delete category',
-                            onPressed: () {
-                              final categoryToDelete = selectedCategory;
-                              final removed = InventoryCatalogManager.removeCategory(categoryToDelete);
-                              if (removed) {
-                                setState(() {
-                                  selectedCategory = categories
-                                      .where((item) => item != categoryToDelete)
-                                      .isNotEmpty
-                                      ? categories.where((item) => item != categoryToDelete).first
-                                      : '';
-                                });
-                              }
-                            },
-                            icon: const Icon(Icons.delete_outline_rounded),
-                          ),
-                        ],
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextField(
-                            controller: subCategoryController,
-                            decoration: const InputDecoration(
-                              labelText: 'New subcategory',
-                              border: OutlineInputBorder(),
+                                  child: Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(item, style: const TextStyle(fontWeight: FontWeight.w600)),
+                                      ),
+                                      IconButton(
+                                        tooltip: 'Delete category',
+                                        onPressed: () {
+                                          final removed = InventoryCatalogManager.removeCategory(item);
+                                          if (removed) {
+                                            setState(() {
+                                              if (selectedCategory == item) {
+                                                selectedCategory = categories
+                                                    .where((entry) => entry != item)
+                                                    .isNotEmpty
+                                                    ? categories.where((entry) => entry != item).first
+                                                    : '';
+                                              }
+                                            });
+                                          }
+                                        },
+                                        icon: const Icon(Icons.delete_outline_rounded),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              },
                             ),
                           ),
+                      ],
+                    ),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        DropdownButtonFormField<String>(
+                          initialValue: categories.contains(selectedCategory) ? selectedCategory : null,
+                          decoration: const InputDecoration(
+                            labelText: 'Category',
+                            border: OutlineInputBorder(),
+                          ),
+                          items: categories
+                              .map(
+                                (item) => DropdownMenuItem<String>(
+                                  value: item,
+                                  child: Text(item),
+                                ),
+                              )
+                              .toList(),
+                          onChanged: (value) {
+                            if (value == null) return;
+                            setState(() {
+                              selectedCategory = value;
+                            });
+                          },
                         ),
-                        const SizedBox(width: 8),
-                        TextButton(
-                          onPressed: () {
+                        const SizedBox(height: 12),
+                        buildAddCell(
+                          controller: subCategoryController,
+                          label: 'New subcategory',
+                          onAdd: () {
                             final newSubCategory = subCategoryController.text.trim();
                             if (newSubCategory.isEmpty || selectedCategory.isEmpty) {
                               return;
@@ -566,39 +691,38 @@ class InventoryScreen extends StatelessWidget {
                             subCategoryController.clear();
                             setState(() {});
                           },
-                          child: const Text('Add'),
                         ),
+                        const SizedBox(height: 12),
+                        Text(
+                          'Subcategories for ${selectedCategory.isEmpty ? 'selected category' : selectedCategory}',
+                          style: const TextStyle(fontWeight: FontWeight.w700),
+                        ),
+                        const SizedBox(height: 8),
+                        if (subCategories.isEmpty)
+                          const Text('No subcategories yet.')
+                        else
+                          Expanded(
+                            child: Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              children: subCategories
+                                  .map(
+                                    (item) => InputChip(
+                                      label: Text(item),
+                                      backgroundColor: Theme.of(innerContext).colorScheme.primaryContainer,
+                                      onPressed: () {},
+                                      deleteIcon: const Icon(Icons.close, size: 18),
+                                      onDeleted: () {
+                                        InventoryCatalogManager.removeSubcategory(selectedCategory, item);
+                                        setState(() {});
+                                      },
+                                    ),
+                                  )
+                                  .toList(),
+                            ),
+                          ),
                       ],
                     ),
-                    const SizedBox(height: 12),
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        'Subcategories for $selectedCategory',
-                        style: const TextStyle(fontWeight: FontWeight.w600),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    if (subCategories.isEmpty)
-                      const Text('No subcategories yet.')
-                    else
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: subCategories
-                            .map(
-                              (item) => Chip(
-                                label: Text(item),
-                                backgroundColor: Theme.of(innerContext).colorScheme.primaryContainer,
-                                deleteIcon: const Icon(Icons.close, size: 18),
-                                onDeleted: () {
-                                  InventoryCatalogManager.removeSubcategory(selectedCategory, item);
-                                  setState(() {});
-                                },
-                              ),
-                            )
-                            .toList(),
-                      ),
                   ],
                 ),
               ),
@@ -613,6 +737,385 @@ class InventoryScreen extends StatelessWidget {
         );
       },
     );
+  }
+}
+
+class PurchaseOrderEntryScreen extends StatefulWidget {
+  const PurchaseOrderEntryScreen({super.key, required this.viewModel});
+
+  final SalesViewModel viewModel;
+
+  @override
+  State<PurchaseOrderEntryScreen> createState() => _PurchaseOrderEntryScreenState();
+}
+
+class _PurchaseOrderEntryScreenState extends State<PurchaseOrderEntryScreen> {
+  final List<_PurchaseOrderLine> _lines = [_PurchaseOrderLine()];
+
+  void _addLine() {
+    setState(() {
+      _lines.add(_PurchaseOrderLine());
+    });
+  }
+
+  void _removeLine(int index) {
+    if (_lines.length == 1) {
+      return;
+    }
+
+    setState(() {
+      final line = _lines.removeAt(index);
+      line.dispose();
+    });
+  }
+
+  void _savePurchaseOrder() {
+    final addedItems = <CrackerItem>[];
+    final batchSequenceCount = <String, int>{};
+
+    for (final line in _lines) {
+      final category = line.category.trim();
+      final subCategory = line.subCategory.trim();
+      final name = line.nameController.text.trim();
+      final quantity = int.tryParse(line.quantityController.text.trim()) ?? 0;
+      final price = double.tryParse(line.priceController.text.trim()) ?? 0.0;
+
+      if (category.isEmpty || subCategory.isEmpty || name.isEmpty || quantity <= 0) {
+        continue;
+      }
+
+      final categoryIndex = InventoryCodeGenerator.resolveCategoryIndex(category);
+      final subCategoryIndex = InventoryCodeGenerator.resolveSubCategoryIndex(subCategory);
+      final variantIndex = InventoryCodeGenerator.resolveVariantIndex(name);
+      final categoryKey = '$category|$subCategory';
+      final currentBatchCount = batchSequenceCount[categoryKey] ?? 0;
+      final nextSequence = widget.viewModel.catalog
+              .where((item) => item.category == category && item.subCategory == subCategory)
+              .length +
+          currentBatchCount +
+          1;
+      batchSequenceCount[categoryKey] = currentBatchCount + 1;
+
+      final existingCodes = widget.viewModel.catalog
+          .where((item) => item.category == category && item.subCategory == subCategory)
+          .map((item) => item.itemCode ?? '')
+          .where((code) => code.isNotEmpty)
+          .toList();
+      final uniqueCode = InventoryCodeGenerator.generateUniqueAutoCode(
+        category: category,
+        subCategory: subCategory,
+        itemName: name,
+        existingCodes: existingCodes,
+        startSequence: nextSequence,
+      );
+
+      final item = CrackerItem(
+        id: DateTime.now().millisecondsSinceEpoch.toString() + '-${addedItems.length}',
+        name: name,
+        category: category,
+        subCategory: subCategory,
+        unitPrice: price,
+        stockAvailable: quantity,
+        categoryCode: InventoryCodeGenerator.generateCategoryCode(categoryIndex),
+        subCategoryCode: InventoryCodeGenerator.generateSubcategoryCode(
+          categoryIndex,
+          subCategoryIndex,
+        ),
+        variantCode: InventoryCodeGenerator.generateVariantCode(
+          categoryIndex,
+          subCategoryIndex,
+          variantIndex,
+        ),
+        itemCode: uniqueCode,
+      );
+
+      addedItems.add(item);
+    }
+
+    if (addedItems.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Add at least one valid item before saving.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    for (final item in addedItems) {
+      widget.viewModel.addCatalogItem(item);
+    }
+
+    if (!mounted) return;
+    Navigator.of(context).pop();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Saved ${addedItems.length} item(s) to inventory')),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Purchase Order'),
+        actions: [
+          TextButton(
+            onPressed: _savePurchaseOrder,
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            children: [
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton.icon(
+                  onPressed: _addLine,
+                  icon: const Icon(Icons.add_rounded),
+                  label: const Text('Add item'),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Expanded(
+                child: ListView.separated(
+                  itemCount: _lines.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 12),
+                  itemBuilder: (context, index) {
+                    final line = _lines[index];
+                    final categoryOptions = InventoryCatalogManager.categories;
+                    final subCategoryOptions = line.category.isEmpty
+                        ? <String>[]
+                        : InventoryCatalogManager.subcategoriesFor(line.category);
+
+                    return Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.surface,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: Colors.grey.shade200),
+                      ),
+                      child: Column(
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  'Item ${index + 1}',
+                                  style: const TextStyle(fontWeight: FontWeight.w700),
+                                ),
+                              ),
+                              if (_lines.length > 1)
+                                IconButton(
+                                  onPressed: () => _removeLine(index),
+                                  icon: const Icon(Icons.delete_outline_rounded),
+                                  color: Colors.red,
+                                ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          RawAutocomplete<CrackerItem>(
+                            textEditingController: line.nameController,
+                            focusNode: line.focusNode,
+                            optionsBuilder: (TextEditingValue value) {
+                              final query = value.text.trim();
+                              if (query.length < 3) {
+                                return const Iterable<CrackerItem>.empty();
+                              }
+
+                              final normalized = query.toLowerCase();
+                              return widget.viewModel.catalog.where((item) {
+                                final itemName = item.name.toLowerCase();
+                                final category = item.category.toLowerCase();
+                                final itemCode = (item.itemCode ?? '').toLowerCase();
+                                return itemName.contains(normalized) ||
+                                    category.contains(normalized) ||
+                                    itemCode.contains(normalized);
+                              });
+                            },
+                            displayStringForOption: (option) => option.name,
+                            onSelected: (CrackerItem option) {
+                              setState(() {
+                                line.nameController.text = option.name;
+                                line.category = option.category;
+                                line.subCategory = option.subCategory;
+                                line.priceController.text = option.unitPrice.toStringAsFixed(2);
+                              });
+                            },
+                            fieldViewBuilder: (
+                              BuildContext context,
+                              TextEditingController fieldController,
+                              FocusNode focusNode,
+                              VoidCallback onFieldSubmitted,
+                            ) {
+                              return TextField(
+                                controller: fieldController,
+                                focusNode: focusNode,
+                                decoration: const InputDecoration(
+                                  labelText: 'Item name',
+                                  border: OutlineInputBorder(),
+                                ),
+                              );
+                            },
+                            optionsViewBuilder: (context, onSelected, options) {
+                              return Align(
+                                alignment: Alignment.topLeft,
+                                child: Material(
+                                  elevation: 4,
+                                  borderRadius: BorderRadius.circular(12),
+                                  child: ConstrainedBox(
+                                    constraints: const BoxConstraints(maxHeight: 220, maxWidth: 400),
+                                    child: ListView.builder(
+                                      padding: EdgeInsets.zero,
+                                      shrinkWrap: true,
+                                      itemCount: options.length,
+                                      itemBuilder: (context, index) {
+                                        final option = options.elementAt(index);
+                                        return ListTile(
+                                          title: Text(option.name),
+                                          subtitle: Text('${option.category} • ${option.subCategory.isEmpty ? 'General' : option.subCategory}'),
+                                          onTap: () => onSelected(option),
+                                        );
+                                      },
+                                    ),
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                          const SizedBox(height: 12),
+                          DropdownButtonFormField<String>(
+                            value: line.category.isEmpty ? null : line.category,
+                            decoration: const InputDecoration(
+                              labelText: 'Category',
+                              border: OutlineInputBorder(),
+                            ),
+                            items: categoryOptions
+                                .map(
+                                  (option) => DropdownMenuItem<String>(
+                                    value: option,
+                                    child: Text(option),
+                                  ),
+                                )
+                                .toList(),
+                            onChanged: (value) {
+                              if (value == null) return;
+                              setState(() {
+                                line.category = value;
+                                line.subCategory = InventoryCatalogManager.subcategoriesFor(value).isNotEmpty
+                                    ? InventoryCatalogManager.subcategoriesFor(value).first
+                                    : '';
+                              });
+                            },
+                          ),
+                          const SizedBox(height: 12),
+                          DropdownButtonFormField<String>(
+                            value: subCategoryOptions.contains(line.subCategory)
+                                ? line.subCategory
+                                : (subCategoryOptions.isNotEmpty ? subCategoryOptions.first : null),
+                            decoration: const InputDecoration(
+                              labelText: 'Subcategory',
+                              border: OutlineInputBorder(),
+                            ),
+                            items: subCategoryOptions
+                                .map(
+                                  (option) => DropdownMenuItem<String>(
+                                    value: option,
+                                    child: Text(option),
+                                  ),
+                                )
+                                .toList(),
+                            onChanged: (value) {
+                              if (value == null) return;
+                              setState(() {
+                                line.subCategory = value;
+                              });
+                            },
+                          ),
+                          const SizedBox(height: 12),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: TextField(
+                                  controller: line.quantityController,
+                                  keyboardType: TextInputType.number,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Quantity',
+                                    border: OutlineInputBorder(),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: TextField(
+                                  controller: line.priceController,
+                                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                  decoration: const InputDecoration(
+                                    labelText: 'Price',
+                                    prefixText: '₹ ',
+                                    border: OutlineInputBorder(),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: _savePurchaseOrder,
+                  icon: const Icon(Icons.save_rounded),
+                  label: const Text('Save Purchase Order'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    for (final line in _lines) {
+      line.dispose();
+    }
+    super.dispose();
+  }
+}
+
+class _PurchaseOrderLine {
+  _PurchaseOrderLine() {
+    category = InventoryCatalogManager.categories.isNotEmpty
+        ? InventoryCatalogManager.categories.first
+        : '';
+    subCategory = InventoryCatalogManager.subcategoriesFor(category).isNotEmpty
+        ? InventoryCatalogManager.subcategoriesFor(category).first
+        : '';
+    quantityController.text = '1';
+  }
+
+  final TextEditingController nameController = TextEditingController();
+  final TextEditingController quantityController = TextEditingController();
+  final TextEditingController priceController = TextEditingController();
+  final FocusNode focusNode = FocusNode();
+
+  String category = '';
+  String subCategory = '';
+
+  void dispose() {
+    focusNode.dispose();
+    nameController.dispose();
+    quantityController.dispose();
+    priceController.dispose();
   }
 }
 

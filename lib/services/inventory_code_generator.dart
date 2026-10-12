@@ -30,12 +30,14 @@ class InventorySubCategory {
 }
 
 class InventoryCatalogManager {
+  static const List<String> defaultSubcategories = ['Standard', 'Others'];
+
   static final Map<String, List<String>> _catalog = {
-    'Sparklers': ['Standard company', 'Other companies', 'Premium', 'Local'],
-    'Rockets': ['Standard company', 'Premium', 'Local'],
-    'Flower Pots': ['Special', 'Ground', 'Mini'],
-    'Ground Crackers': ['Ground', 'Mini', 'Large'],
-    'Specials': ['Premium', 'Electric', 'Crackling'],
+    'Sparklers': [...defaultSubcategories],
+    'Rockets': [...defaultSubcategories],
+    'Flower Pots': [...defaultSubcategories],
+    'Ground Crackers': [...defaultSubcategories],
+    'Specials': [...defaultSubcategories],
   };
 
   static List<String> get categories => _catalog.keys.toList();
@@ -77,7 +79,7 @@ class InventoryCatalogManager {
   static void addCategory(String category) {
     final normalized = _normalize(category);
     if (normalized.isEmpty) return;
-    _catalog.putIfAbsent(normalized, () => <String>[]);
+    _catalog.putIfAbsent(normalized, () => [...defaultSubcategories]);
     Future.microtask(persistToFirestore);
   }
 
@@ -190,12 +192,117 @@ class InventoryCodeGenerator {
     required String itemName,
     int itemSequence = 0,
   }) {
-    final categoryIndex = resolveCategoryIndex(category);
-    final subCategoryIndex = resolveSubCategoryIndex(subCategory);
-    final variantIndex = resolveVariantIndex(itemName);
+    final categoryCode = _categoryShortCode(category);
+    final subCategoryCode = _subcategoryShortCode(subCategory);
     final safeSequence = _sequenceValue(category, subCategory, itemName, itemSequence);
 
-    return '$categoryIndex$subCategoryIndex$variantIndex${safeSequence.toString().padLeft(2, '0')}';
+    return '$categoryCode-$subCategoryCode-${safeSequence.toString().padLeft(3, '0')}';
+  }
+
+  static String generateUniqueAutoCode({
+    required String category,
+    required String subCategory,
+    required String itemName,
+    required Iterable<String> existingCodes,
+    int startSequence = 1,
+  }) {
+    final normalizedExisting = existingCodes
+        .map((code) => code.trim())
+        .where((code) => code.isNotEmpty)
+        .toSet();
+
+    var sequence = startSequence;
+    while (true) {
+      final candidate = generateAutoCode(
+        category: category,
+        subCategory: subCategory,
+        itemName: itemName,
+        itemSequence: sequence,
+      );
+
+      if (!normalizedExisting.contains(candidate)) {
+        return candidate;
+      }
+      sequence += 1;
+    }
+  }
+
+  static String _categoryShortCode(String category) {
+    final normalized = category.trim();
+    if (normalized.isEmpty) {
+      return 'XX';
+    }
+
+    final key = normalized.toLowerCase();
+    final lookup = <String, String>{
+      'sparklers': 'SP',
+      'rockets': 'RK',
+      'flower pots': 'FP',
+      'flower pot': 'FP',
+      'ground crackers': 'GC',
+      'ground cracker': 'GC',
+      'specials': 'SPC',
+    };
+
+    if (lookup.containsKey(key)) {
+      return lookup[key]!;
+    }
+
+    final letters = key.replaceAll(RegExp(r'[^a-z]'), '');
+    if (letters.isEmpty) {
+      return 'XX';
+    }
+
+    return letters.substring(0, letters.length > 2 ? 2 : letters.length).toUpperCase();
+  }
+
+  static String _subcategoryShortCode(String subCategory) {
+    final normalized = subCategory.trim().toLowerCase();
+    if (normalized.isEmpty) {
+      return 'OTH';
+    }
+
+    if (normalized.contains('standard')) return 'STD';
+    if (normalized.contains('other')) return 'OTH';
+    if (normalized.contains('premium')) return 'PRE';
+    if (normalized.contains('local')) return 'LOC';
+    if (normalized.contains('special')) return 'SPC';
+    if (normalized.contains('electric')) return 'ELE';
+    if (normalized.contains('crackling')) return 'CRK';
+    if (normalized.contains('ground')) return 'GRD';
+    if (normalized.contains('mini')) return 'MIN';
+    if (normalized.contains('large')) return 'LRG';
+
+    final letters = normalized.replaceAll(RegExp(r'[^a-z]'), '');
+    if (letters.isEmpty) {
+      return 'OTH';
+    }
+
+    return letters.substring(0, letters.length > 3 ? 3 : letters.length).toUpperCase();
+  }
+
+  static String _variantShortCode(String itemName) {
+    final normalized = itemName.trim().toLowerCase();
+    if (normalized.isEmpty) {
+      return 'GEN';
+    }
+
+    if (normalized.contains('15cm') || normalized.contains('15 cm')) return '15';
+    if (normalized.contains('30cm') || normalized.contains('30 cm')) return '30';
+    if (normalized.contains('45cm') || normalized.contains('45 cm')) return '45';
+    if (normalized.contains('electric')) return 'ELE';
+    if (normalized.contains('crackling')) return 'CRK';
+    if (normalized.contains('ground')) return 'GRD';
+    if (normalized.contains('mini')) return 'MIN';
+    if (normalized.contains('large')) return 'LRG';
+    if (normalized.contains('special')) return 'SPC';
+
+    final letters = normalized.replaceAll(RegExp(r'[^a-z]'), '');
+    if (letters.isEmpty) {
+      return 'GEN';
+    }
+
+    return letters.substring(0, letters.length > 3 ? 3 : letters.length).toUpperCase();
   }
 
   static int resolveCategoryIndex(String category) {
@@ -219,14 +326,11 @@ class InventoryCodeGenerator {
   }
 
   static int _sequenceValue(String category, String subCategory, String itemName, int itemSequence) {
-    final combined = '$category|$subCategory|${itemName.trim()}|${itemSequence.clamp(0, 99)}';
-    final normalized = combined.trim();
-    if (normalized.isEmpty) {
-      return 10;
+    if (itemSequence > 0) {
+      return itemSequence.clamp(1, 99);
     }
 
-    final hash = normalized.codeUnits.fold<int>(0, (sum, code) => sum + code);
-    return ((hash % 90) + 10).clamp(10, 99);
+    return 1;
   }
 
   static int _stableIndex(String value, {required int maxValue}) {

@@ -1,11 +1,12 @@
 import 'package:crackers_billing/models/cracker_item.dart';
+import 'package:crackers_billing/services/inventory_code_generator.dart';
 import 'package:crackers_billing/view_models/sales_view_model.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('SalesViewModel', () {
-    test('starts with an empty catalog until real inventory is added', () {
-      final viewModel = SalesViewModel();
+    test('can start with an explicit empty catalog for isolated logic tests', () {
+      final viewModel = SalesViewModel(catalog: const []);
 
       expect(viewModel.catalog, isEmpty);
     });
@@ -59,7 +60,7 @@ void main() {
     });
 
     test('merges duplicate item entries by category, subcategory and name', () {
-      final viewModel = SalesViewModel();
+      final viewModel = SalesViewModel(catalog: const []);
 
       final first = CrackerItem(
         id: 'dup-1',
@@ -85,6 +86,59 @@ void main() {
       expect(viewModel.catalog.length, 1);
       expect(viewModel.catalog.first.stockAvailable, 7);
       expect(viewModel.catalog.first.name, 'Silver 15cm');
+    });
+
+    test('removes an item from the inventory catalog', () {
+      final viewModel = SalesViewModel(catalog: [
+        CrackerItem(
+          id: 'remove-me',
+          name: 'Remove Me',
+          category: 'Sparklers',
+          subCategory: 'Standard',
+          unitPrice: 10.0,
+          stockAvailable: 5,
+        ),
+      ]);
+
+      viewModel.removeInventoryItem('remove-me');
+
+      expect(viewModel.catalog, isEmpty);
+    });
+
+    test('generates sequential codes for items in the same category and subcategory', () {
+      final viewModel = SalesViewModel(catalog: [
+        CrackerItem(
+          id: 'seq-1',
+          name: '7cm',
+          category: 'Sparklers',
+          subCategory: 'Standard',
+          unitPrice: 10.0,
+          stockAvailable: 5,
+          itemCode: 'SP-STD-001',
+        ),
+      ]);
+
+      final nextSequence = viewModel.catalog
+              .where((item) => item.category == 'Sparklers' && item.subCategory == 'Standard')
+              .length +
+          1;
+
+      final firstCode = InventoryCodeGenerator.generateAutoCode(
+        category: 'Sparklers',
+        subCategory: 'Standard',
+        itemName: '7cm',
+        itemSequence: 1,
+      );
+
+      final secondCode = InventoryCodeGenerator.generateAutoCode(
+        category: 'Sparklers',
+        subCategory: 'Standard',
+        itemName: '15cm-plane',
+        itemSequence: nextSequence,
+      );
+
+      expect(firstCode, 'SP-STD-001');
+      expect(secondCode, 'SP-STD-002');
     });
   });
 }
