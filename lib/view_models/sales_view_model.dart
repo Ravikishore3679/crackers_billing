@@ -12,15 +12,19 @@ import '../services/firestore_service.dart';
 class SalesViewModel extends ChangeNotifier {
   StreamSubscription<User?>? _authSubscription;
 
+  String? get _currentUserId => Firebase.apps.isEmpty ? null : FirebaseAuth.instance.currentUser?.uid;
+
   SalesViewModel({List<CrackerItem>? catalog}) : _catalog = List<CrackerItem>.from(catalog ?? defaultCatalog) {
     discountController.text = '0.00';
-    _authSubscription = FirebaseAuth.instance.authStateChanges().listen((_) {
-      Future.microtask(() async {
-        await loadCatalog();
-        await loadInvoiceHistory();
-        await loadExpenseSummary();
+    if (Firebase.apps.isNotEmpty) {
+      _authSubscription = FirebaseAuth.instance.authStateChanges().listen((_) {
+        Future.microtask(() async {
+          await loadCatalog();
+          await loadInvoiceHistory();
+          await loadExpenseSummary();
+        });
       });
-    });
+    }
     Future.microtask(loadCatalog);
     Future.microtask(loadInvoiceHistory);
     Future.microtask(loadExpenseSummary);
@@ -150,13 +154,13 @@ class SalesViewModel extends ChangeNotifier {
   Future<void> loadCatalog() async {
     try {
       final items = await FirestoreService.instance.fetchInventoryItems(
-        userId: FirebaseAuth.instance.currentUser?.uid,
+        userId: _currentUserId,
       );
 
-      if (items.isEmpty && FirebaseAuth.instance.currentUser != null) {
+      if (items.isEmpty && _currentUserId != null) {
         await seedDefaultCatalog();
         final seededItems = await FirestoreService.instance.fetchInventoryItems(
-          userId: FirebaseAuth.instance.currentUser?.uid,
+          userId: _currentUserId,
         );
         _catalog
           ..clear()
@@ -181,10 +185,10 @@ class SalesViewModel extends ChangeNotifier {
 
     try {
       final reportSummary = await FirestoreService.instance.fetchReportSummary(
-        userId: FirebaseAuth.instance.currentUser?.uid,
+        userId: _currentUserId,
       );
       final invoices = await FirestoreService.instance.fetchInvoices(
-        userId: FirebaseAuth.instance.currentUser?.uid,
+        userId: _currentUserId,
       );
       _invoices
         ..clear()
@@ -209,7 +213,7 @@ class SalesViewModel extends ChangeNotifier {
 
     try {
       final entries = await FirestoreService.instance.fetchExpenseEntries(
-        userId: FirebaseAuth.instance.currentUser?.uid,
+        userId: _currentUserId,
       );
       totalExpenditure = entries.fold<double>(
         0.0,
@@ -223,7 +227,7 @@ class SalesViewModel extends ChangeNotifier {
   }
 
   Future<void> seedDefaultCatalog() async {
-    if (FirebaseAuth.instance.currentUser == null || Firebase.apps.isEmpty) {
+    if (_currentUserId == null || Firebase.apps.isEmpty) {
       return;
     }
 
@@ -232,7 +236,7 @@ class SalesViewModel extends ChangeNotifier {
       if (!existing) {
         await FirestoreService.instance.saveInventoryItem(
           item,
-          userId: FirebaseAuth.instance.currentUser?.uid,
+          userId: _currentUserId,
         );
       }
     }
@@ -297,7 +301,7 @@ class SalesViewModel extends ChangeNotifier {
       if (Firebase.apps.isNotEmpty) {
         FirestoreService.instance.saveInventoryItem(
           mergedItem,
-          userId: FirebaseAuth.instance.currentUser?.uid,
+          userId: _currentUserId,
         ).catchError((error) {
           _errorMessage = 'Item updated locally but cloud sync failed: $error';
           notifyListeners();
@@ -317,7 +321,7 @@ class SalesViewModel extends ChangeNotifier {
     if (Firebase.apps.isNotEmpty) {
       FirestoreService.instance.saveInventoryItem(
         item,
-        userId: FirebaseAuth.instance.currentUser?.uid,
+        userId: _currentUserId,
       ).catchError((error) {
         _errorMessage = 'Item saved locally but cloud sync failed: $error';
         notifyListeners();
@@ -368,7 +372,7 @@ class SalesViewModel extends ChangeNotifier {
     if (Firebase.apps.isNotEmpty) {
       FirestoreService.instance.deleteInventoryItem(
         itemId,
-        userId: FirebaseAuth.instance.currentUser?.uid,
+        userId: _currentUserId,
       ).catchError((error) {
         _errorMessage = 'Item removed locally but cloud sync failed: $error';
         notifyListeners();
@@ -447,7 +451,7 @@ class SalesViewModel extends ChangeNotifier {
     try {
       await FirestoreService.instance.saveInvoice(
         invoice,
-        userId: FirebaseAuth.instance.currentUser?.uid,
+        userId: _currentUserId,
       );
       await FirestoreService.instance.saveReportSummary(
         totalRevenue: _invoices.fold(
@@ -463,7 +467,7 @@ class SalesViewModel extends ChangeNotifier {
               ),
         ),
         totalExpenditure: totalExpenditure,
-        userId: FirebaseAuth.instance.currentUser?.uid,
+        userId: _currentUserId,
       );
     } catch (error) {
       _errorMessage = 'Invoice saved locally but cloud sync failed: $error';

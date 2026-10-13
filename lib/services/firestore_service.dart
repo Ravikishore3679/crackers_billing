@@ -278,7 +278,11 @@ class FirestoreService {
   }
 
   Future<void> saveInvoice(Invoice invoice, {String? userId}) async {
-    final uid = userId ?? FirebaseAuth.instance.currentUser?.uid ?? 'anonymous';
+    if (Firebase.apps.isEmpty) {
+      return;
+    }
+
+    final uid = resolveUserId(userId: userId) ?? 'anonymous';
 
     await _salesCollection.add({
       'id': invoice.id,
@@ -296,6 +300,10 @@ class FirestoreService {
   }
 
   Stream<List<Invoice>> invoicesStream({String? userId}) {
+    if (Firebase.apps.isEmpty) {
+      return const Stream.empty();
+    }
+
     Query<Map<String, dynamic>> query = _salesCollection.orderBy('date', descending: true);
 
     if (userId != null) {
@@ -325,6 +333,10 @@ class FirestoreService {
   }
 
   Future<List<Invoice>> fetchInvoices({String? userId}) async {
+    if (Firebase.apps.isEmpty) {
+      return const [];
+    }
+
     Query<Map<String, dynamic>> query = _salesCollection.orderBy('date', descending: true);
 
     if (userId != null) {

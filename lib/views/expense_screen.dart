@@ -23,15 +23,24 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
 
   static String _storageKeyForUser(String? uid) => '${_storageKey}_${uid ?? 'anonymous'}';
 
+  String? _currentUserId() {
+    if (Firebase.apps.isEmpty) {
+      return null;
+    }
+    return FirebaseAuth.instance.currentUser?.uid;
+  }
+
   @override
   void initState() {
     super.initState();
-    _authSubscription = FirebaseAuth.instance.authStateChanges().listen((_) {
-      if (!mounted) {
-        return;
-      }
-      _loadEntries();
-    });
+    if (Firebase.apps.isNotEmpty) {
+      _authSubscription = FirebaseAuth.instance.authStateChanges().listen((_) {
+        if (!mounted) {
+          return;
+        }
+        _loadEntries();
+      });
+    }
     _loadEntries();
   }
 
@@ -43,7 +52,7 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
 
   Future<void> _loadEntries() async {
     if (Firebase.apps.isNotEmpty) {
-      final uid = FirebaseAuth.instance.currentUser?.uid;
+      final uid = _currentUserId();
       if (uid != null) {
         final storedEntries = await FirestoreService.instance.fetchExpenseEntries(userId: uid);
         final loadedEntries = storedEntries
@@ -66,7 +75,7 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
     }
 
     final prefs = await SharedPreferences.getInstance();
-    final rawEntries = prefs.getString(_storageKeyForUser(FirebaseAuth.instance.currentUser?.uid));
+    final rawEntries = prefs.getString(_storageKeyForUser(_currentUserId()));
 
     if (rawEntries == null || rawEntries.isEmpty) {
       final defaultEntries = _defaultEntries();
@@ -104,7 +113,7 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
 
   Future<void> _saveEntries() async {
     if (Firebase.apps.isNotEmpty) {
-      final uid = FirebaseAuth.instance.currentUser?.uid;
+      final uid = _currentUserId();
       if (uid != null) {
         await FirestoreService.instance.saveExpenseEntries(
           _entries.map((entry) => entry.toJson()).toList(),
@@ -118,7 +127,7 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
     final payload = jsonEncode(
       _entries.map((entry) => entry.toJson()).toList(),
     );
-    await prefs.setString(_storageKeyForUser(FirebaseAuth.instance.currentUser?.uid), payload);
+    await prefs.setString(_storageKeyForUser(_currentUserId()), payload);
   }
 
   static List<_ExpenseEntry> _defaultEntries() {
