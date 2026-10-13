@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
@@ -8,9 +10,20 @@ import '../models/invoice_line_item.dart';
 import '../services/firestore_service.dart';
 
 class SalesViewModel extends ChangeNotifier {
+  StreamSubscription<User?>? _authSubscription;
+
   SalesViewModel({List<CrackerItem>? catalog}) : _catalog = List<CrackerItem>.from(catalog ?? defaultCatalog) {
     discountController.text = '0.00';
+    _authSubscription = FirebaseAuth.instance.authStateChanges().listen((_) {
+      Future.microtask(() async {
+        await loadCatalog();
+        await loadInvoiceHistory();
+        await loadExpenseSummary();
+      });
+    });
     Future.microtask(loadCatalog);
+    Future.microtask(loadInvoiceHistory);
+    Future.microtask(loadExpenseSummary);
   }
 
   static List<CrackerItem> get defaultCatalog => [
@@ -94,6 +107,7 @@ class SalesViewModel extends ChangeNotifier {
   Invoice? _lastGeneratedInvoice;
   String? _errorMessage;
   double _discountAmount = 0.0;
+  double totalExpenditure = 0.0;
 
   final TextEditingController customerNameController = TextEditingController();
   final TextEditingController customerPhoneController = TextEditingController();
@@ -158,6 +172,54 @@ class SalesViewModel extends ChangeNotifier {
       _errorMessage = 'Unable to load inventory: $error';
       notifyListeners();
     }
+  }
+
+  Future<void> loadInvoiceHistory() async {
+    if (Firebase.apps.isEmpty) {
+      return;
+    }
+
+    try {
+      final reportSummary = await FirestoreService.instance.fetchReportSummary(
+        userId: FirebaseAuth.instance.currentUser?.uid,
+      );
+      final invoices = await FirestoreService.instance.fetchInvoices(
+        userId: FirebaseAuth.instance.currentUser?.uid,
+      );
+      _invoices
+        ..clear()
+        ..addAll(invoices);
+
+      if (reportSummary.isNotEmpty) {
+        totalExpenditure = (reportSummary['totalExpenditure'] as num?)?.toDouble() ?? totalExpenditure;
+      }
+      notifyListeners();
+    } catch (error) {
+      _errorMessage = 'Unable to load invoice history: $error';
+      notifyListeners();
+    }
+  }
+
+  Future<void> loadExpenseSummary() async {
+    if (Firebase.apps.isEmpty) {
+      totalExpenditure = 0.0;
+      notifyListeners();
+      return;
+    }
+
+    try {
+      final entries = await FirestoreService.instance.fetchExpenseEntries(
+        userId: FirebaseAuth.instance.currentUser?.uid,
+      );
+      totalExpenditure = entries.fold<double>(
+        0.0,
+        (sum, entry) => sum + (entry['amount'] as num? ?? 0).toDouble(),
+      );
+    } catch (_) {
+      totalExpenditure = 0.0;
+    }
+
+    notifyListeners();
   }
 
   Future<void> seedDefaultCatalog() async {
@@ -227,7 +289,8 @@ class SalesViewModel extends ChangeNotifier {
         itemCode: existingItem.itemCode ?? item.itemCode,
       );
 
-      _catalog[duplicateIndex] = mergedItem;
+      _catalog.removeAt(duplicateIndex);
+      _catalog.insert(0, mergedItem);
       _errorMessage = null;
       notifyListeners();
 
@@ -247,7 +310,7 @@ class SalesViewModel extends ChangeNotifier {
       throw StateError('An item with the same ID already exists.');
     }
 
-    _catalog.add(item);
+    _catalog.insert(0, item);
     _errorMessage = null;
     notifyListeners();
 
@@ -386,6 +449,22 @@ class SalesViewModel extends ChangeNotifier {
         invoice,
         userId: FirebaseAuth.instance.currentUser?.uid,
       );
+      await FirestoreService.instance.saveReportSummary(
+        totalRevenue: _invoices.fold(
+          0.0,
+          (sum, invoice) => sum + invoice.netTotal,
+        ),
+        totalUnitsSold: _invoices.fold(
+          0,
+          (sum, invoice) => sum +
+              invoice.lineItems.fold(
+                0,
+                (lineSum, item) => lineSum + item.quantity,
+              ),
+        ),
+        totalExpenditure: totalExpenditure,
+        userId: FirebaseAuth.instance.currentUser?.uid,
+      );
     } catch (error) {
       _errorMessage = 'Invoice saved locally but cloud sync failed: $error';
       notifyListeners();
@@ -396,6 +475,7 @@ class SalesViewModel extends ChangeNotifier {
 
   @override
   void dispose() {
+    _authSubscription?.cancel();
     customerNameController.dispose();
     customerPhoneController.dispose();
     discountController.dispose();

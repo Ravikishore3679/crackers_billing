@@ -1,10 +1,133 @@
+import 'dart:convert';
+
+import 'package:crackers_billing/models/cracker_item.dart';
 import 'package:crackers_billing/view_models/sales_view_model.dart';
 import 'package:crackers_billing/views/app_shell.dart';
+import 'package:crackers_billing/views/expense_screen.dart';
 import 'package:crackers_billing/views/inventory_screen.dart';
+import 'package:crackers_billing/views/reports_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+  setUp(() {
+    SharedPreferences.setMockInitialValues({});
+  });
+  testWidgets('expense screen records expenditures and totals them by date', (WidgetTester tester) async {
+    await tester.pumpWidget(const MaterialApp(home: ExpenseScreen()));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Add expense'));
+    await tester.pumpAndSettle();
+
+    final titleField = find.byWidgetPredicate(
+      (widget) => widget is TextField && widget.decoration?.labelText == 'Title',
+    );
+    final amountField = find.byWidgetPredicate(
+      (widget) => widget is TextField && widget.decoration?.labelText == 'Amount',
+    );
+
+    await tester.enterText(titleField, 'Raw materials');
+    await tester.enterText(amountField, '250');
+    await tester.tap(find.text('Save expense'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Total expenditure'), findsOneWidget);
+    expect(find.textContaining('₹250.00'), findsWidgets);
+    expect(find.text('Raw materials'), findsAtLeastNWidgets(1));
+  });
+
+  testWidgets('expense screen keeps entries after a rebuild', (WidgetTester tester) async {
+    await tester.pumpWidget(const MaterialApp(home: ExpenseScreen()));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Add expense'));
+    await tester.pumpAndSettle();
+
+    final titleField = find.byWidgetPredicate(
+      (widget) => widget is TextField && widget.decoration?.labelText == 'Title',
+    );
+    final amountField = find.byWidgetPredicate(
+      (widget) => widget is TextField && widget.decoration?.labelText == 'Amount',
+    );
+
+    await tester.enterText(titleField, 'Fuel');
+    await tester.enterText(amountField, '300');
+    await tester.tap(find.text('Save expense'));
+    await tester.pumpAndSettle();
+
+    await tester.pumpWidget(const MaterialApp(home: ExpenseScreen()));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Fuel'), findsOneWidget);
+  });
+
+  testWidgets('expense screen restores user-scoped fallback data after a relogin', (WidgetTester tester) async {
+    final payload = jsonEncode([
+      {
+        'title': 'Fuel',
+        'amount': 300.0,
+        'date': DateTime.now().millisecondsSinceEpoch,
+        'icon': 'receipt',
+      },
+    ]);
+
+    SharedPreferences.setMockInitialValues({'expense_entries_v1_anonymous': payload});
+
+    await tester.pumpWidget(const MaterialApp(home: ExpenseScreen()));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Fuel'), findsOneWidget);
+  });
+
+  testWidgets('expense screen allows deleting an entry', (WidgetTester tester) async {
+    await tester.pumpWidget(const MaterialApp(home: ExpenseScreen()));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Raw materials'), findsAtLeastNWidgets(1));
+
+    await tester.tap(find.byTooltip('Delete expense').first);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Raw materials'), findsNothing);
+    expect(find.text('Total expenditure'), findsOneWidget);
+  });
+
+  testWidgets('reports screen shows generated invoices and print action', (WidgetTester tester) async {
+    final viewModel = SalesViewModel();
+    viewModel.addToCart(viewModel.catalog.first);
+    await viewModel.checkout();
+
+    await tester.pumpWidget(
+      ChangeNotifierProvider<SalesViewModel>.value(
+        value: viewModel,
+        child: const MaterialApp(home: ReportsScreen()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byTooltip('Print invoice'), findsOneWidget);
+    expect(find.textContaining('Invoice:'), findsOneWidget);
+  });
+
+  testWidgets('reports screen shows total expenditure', (WidgetTester tester) async {
+    final viewModel = SalesViewModel();
+
+    await tester.pumpWidget(
+      ChangeNotifierProvider<SalesViewModel>.value(
+        value: viewModel,
+        child: const MaterialApp(home: ReportsScreen()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Expenditure'), findsOneWidget);
+    expect(find.textContaining('₹'), findsWidgets);
+  });
+
   testWidgets('sales screen renders the catalog and app header', (
     WidgetTester tester,
   ) async {
@@ -38,6 +161,21 @@ void main() {
     expect(find.text('Silver Sparklers 15cm'), findsOneWidget);
   });
 
+  testWidgets('sales screen shows item codes beside category labels', (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(1400, 1000);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    await tester.pumpWidget(const MaterialApp(home: AppShell()));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('Sparklers'), findsWidgets);
+    expect(find.textContaining('SP-STD-001'), findsOneWidget);
+  });
+
   testWidgets('sales screen opens a dedicated cart page', (WidgetTester tester) async {
     tester.view.physicalSize = const Size(1400, 1000);
     tester.view.devicePixelRatio = 1.0;
@@ -53,6 +191,81 @@ void main() {
 
     expect(find.text('Cart'), findsAtLeastNWidgets(1));
     expect(find.text('Generate Invoice'), findsOneWidget);
+  });
+
+  testWidgets('sales screen action buttons stay inside a mobile layout', (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(360, 800);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    await tester.pumpWidget(const MaterialApp(home: AppShell()));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('Cart ('), findsOneWidget);
+    expect(find.byTooltip('Open cart'), findsOneWidget);
+    expect(find.byType(Chip), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('newly added inventory items appear at the top of the list', (WidgetTester tester) async {
+    final viewModel = SalesViewModel();
+
+    final firstItem = CrackerItem(
+      id: 'first-item',
+      name: 'First Item',
+      category: 'Sparklers',
+      subCategory: 'Standard',
+      unitPrice: 10,
+      stockAvailable: 5,
+      itemCode: 'SP-STD-001',
+      categoryCode: 'SP',
+      subCategoryCode: 'STD',
+      variantCode: '15',
+    );
+
+    final secondItem = CrackerItem(
+      id: 'second-item',
+      name: 'Second Item',
+      category: 'Sparklers',
+      subCategory: 'Standard',
+      unitPrice: 12,
+      stockAvailable: 6,
+      itemCode: 'SP-STD-002',
+      categoryCode: 'SP',
+      subCategoryCode: 'STD',
+      variantCode: '15',
+    );
+
+    viewModel.addCatalogItem(firstItem);
+    viewModel.addCatalogItem(secondItem);
+
+    expect(viewModel.catalog.first.id, secondItem.id);
+    expect(viewModel.catalog[1].id, firstItem.id);
+  });
+
+  testWidgets('new item row is added at the top of the purchase order list', (WidgetTester tester) async {
+    final viewModel = SalesViewModel();
+    await tester.pumpWidget(MaterialApp(home: PurchaseOrderEntryScreen(viewModel: viewModel)));
+    await tester.pumpAndSettle();
+
+    final firstNameField = find.byWidgetPredicate(
+      (widget) => widget is TextField && widget.decoration?.labelText == 'Item name',
+    ).first;
+    await tester.enterText(firstNameField, 'Alpha');
+    await tester.pump();
+
+    await tester.tap(find.text('Add item'));
+    await tester.pumpAndSettle();
+
+    final topNameField = find.byWidgetPredicate(
+      (widget) => widget is TextField && widget.decoration?.labelText == 'Item name',
+    ).first;
+    final topField = tester.widget<TextField>(topNameField);
+
+    expect(topField.controller?.text, isEmpty);
   });
 
   testWidgets('sales screen shows quantity already added beside the item', (WidgetTester tester) async {

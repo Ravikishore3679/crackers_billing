@@ -50,41 +50,44 @@ class InventoryScreen extends StatelessWidget {
               children: [
                 Container(
                   width: double.infinity,
-                  padding: EdgeInsets.all(isCompact ? 14 : 20),
+                  padding: EdgeInsets.all(isCompact ? 12 : 16),
                   decoration: BoxDecoration(
                     color: Theme.of(context).colorScheme.surface,
-                    borderRadius: BorderRadius.circular(22),
+                    borderRadius: BorderRadius.circular(18),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.06),
-                        blurRadius: 12,
-                        offset: const Offset(0, 6),
+                        color: Colors.black.withValues(alpha: 0.05),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
                       ),
                     ],
                   ),
                   child: Row(
                     children: [
                       Container(
-                        padding: EdgeInsets.all(isCompact ? 10 : 12),
+                        padding: EdgeInsets.all(isCompact ? 8 : 10),
                         decoration: BoxDecoration(
                           color: Colors.teal.withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(16),
+                          borderRadius: BorderRadius.circular(14),
                         ),
-                        child: const Icon(Icons.inventory_2_rounded, color: Colors.teal, size: 28),
+                        child: const Icon(Icons.inventory_2_rounded, color: Colors.teal, size: 24),
                       ),
-                      const SizedBox(width: 16),
-                      const Expanded(
+                      const SizedBox(width: 12),
+                      Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
                               'Inventory Dashboard',
-                              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                              style: TextStyle(
+                                fontSize: isCompact ? 16 : 18,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
-                            SizedBox(height: 4),
+                            const SizedBox(height: 2),
                             Text(
                               'Track stock and product movement',
-                              style: TextStyle(color: Colors.grey),
+                              style: TextStyle(color: Colors.grey, fontSize: 11),
                             ),
                           ],
                         ),
@@ -92,30 +95,37 @@ class InventoryScreen extends StatelessWidget {
                     ],
                   ),
                 ),
-                const SizedBox(height: 16),
-                Wrap(
-                  spacing: isCompact ? 8 : 12,
-                  runSpacing: isCompact ? 8 : 12,
-                  children: [
-                    _SummaryCard(
-                      title: 'Items',
-                      value: '$totalItems',
-                      color: Colors.teal,
-                      icon: Icons.widgets_rounded,
-                    ),
-                    _SummaryCard(
-                      title: 'Units',
-                      value: '$totalStock',
-                      color: Colors.indigo,
-                      icon: Icons.storage_rounded,
-                    ),
-                    _SummaryCard(
-                      title: 'Value',
-                      value: '₹${inventoryValue.toStringAsFixed(2)}',
-                      color: Colors.orange,
-                      icon: Icons.currency_rupee_rounded,
-                    ),
-                  ],
+                const SizedBox(height: 12),
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    final cardWidth = (constraints.maxWidth - (isCompact ? 12 : 20)) / 2;
+                    return SizedBox(
+                      width: constraints.maxWidth,
+                      child: Row(
+                        children: [
+                          SizedBox(
+                            width: cardWidth,
+                            child: _SummaryCard(
+                              title: 'Items',
+                              value: '$totalItems',
+                              color: Colors.teal,
+                              icon: Icons.widgets_rounded,
+                            ),
+                          ),
+                          SizedBox(width: isCompact ? 6 : 10),
+                          SizedBox(
+                            width: cardWidth,
+                            child: _SummaryCard(
+                              title: 'Value',
+                              value: '₹${inventoryValue.toStringAsFixed(2)}',
+                              color: Colors.orange,
+                              icon: Icons.currency_rupee_rounded,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
                 ),
                 const SizedBox(height: 18),
                 Expanded(
@@ -754,7 +764,7 @@ class _PurchaseOrderEntryScreenState extends State<PurchaseOrderEntryScreen> {
 
   void _addLine() {
     setState(() {
-      _lines.add(_PurchaseOrderLine());
+      _lines.insert(0, _PurchaseOrderLine());
     });
   }
 
@@ -810,7 +820,7 @@ class _PurchaseOrderEntryScreenState extends State<PurchaseOrderEntryScreen> {
       );
 
       final item = CrackerItem(
-        id: DateTime.now().millisecondsSinceEpoch.toString() + '-${addedItems.length}',
+        id: '${DateTime.now().millisecondsSinceEpoch}-${addedItems.length}',
         name: name,
         category: category,
         subCategory: subCategory,
@@ -882,7 +892,7 @@ class _PurchaseOrderEntryScreenState extends State<PurchaseOrderEntryScreen> {
               Expanded(
                 child: ListView.separated(
                   itemCount: _lines.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 12),
+                  separatorBuilder: (_, _) => const SizedBox(height: 12),
                   itemBuilder: (context, index) {
                     final line = _lines[index];
                     final categoryOptions = InventoryCatalogManager.categories;
@@ -987,7 +997,7 @@ class _PurchaseOrderEntryScreenState extends State<PurchaseOrderEntryScreen> {
                           ),
                           const SizedBox(height: 12),
                           DropdownButtonFormField<String>(
-                            value: line.category.isEmpty ? null : line.category,
+                            initialValue: line.category.isEmpty ? null : line.category,
                             decoration: const InputDecoration(
                               labelText: 'Category',
                               border: OutlineInputBorder(),
@@ -1012,7 +1022,7 @@ class _PurchaseOrderEntryScreenState extends State<PurchaseOrderEntryScreen> {
                           ),
                           const SizedBox(height: 12),
                           DropdownButtonFormField<String>(
-                            value: subCategoryOptions.contains(line.subCategory)
+                            initialValue: subCategoryOptions.contains(line.subCategory)
                                 ? line.subCategory
                                 : (subCategoryOptions.isNotEmpty ? subCategoryOptions.first : null),
                             decoration: const InputDecoration(
@@ -1135,9 +1145,9 @@ class _SummaryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ConstrainedBox(
-      constraints: const BoxConstraints(minWidth: 150, maxWidth: 220),
+      constraints: const BoxConstraints(minWidth: 130, maxWidth: 190),
       child: Container(
-        padding: const EdgeInsets.all(18),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
         decoration: BoxDecoration(
           color: color.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(18),
@@ -1145,21 +1155,27 @@ class _SummaryCard extends StatelessWidget {
         child: Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(10),
+              padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
                 color: color.withValues(alpha: 0.16),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Icon(icon, color: color),
+              child: Icon(icon, color: color, size: 20),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 10),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
-                  const SizedBox(height: 4),
-                  Text(value, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+                  Text(
+                    title,
+                    style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    value,
+                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                  ),
                 ],
               ),
             ),

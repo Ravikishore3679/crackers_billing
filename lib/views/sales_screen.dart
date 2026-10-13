@@ -338,36 +338,33 @@ class _CatalogPanelState extends State<_CatalogPanel> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                const Text(
-                  'Available Crackers',
-                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-                ),
-                const Spacer(),
-                Tooltip(
-                  message: 'Open cart',
-                  child: TextButton.icon(
-                    onPressed: () => Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => CartScreen(viewModel: widget.viewModel),
+            Align(
+              alignment: Alignment.centerRight,
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Tooltip(
+                      message: 'Open cart',
+                      child: TextButton.icon(
+                        onPressed: () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => CartScreen(viewModel: widget.viewModel),
+                          ),
+                        ),
+                        icon: const Icon(Icons.shopping_cart_outlined, size: 18),
+                        label: Text('Cart (${widget.viewModel.cart.length})'),
                       ),
                     ),
-                    icon: const Icon(Icons.shopping_cart_outlined),
-                    label: Text('Cart (${widget.viewModel.cart.length})'),
-                  ),
+                    const SizedBox(width: 6),
+                    Chip(
+                      visualDensity: VisualDensity.compact,
+                      label: Text('${filteredItems.length} items'),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 8),
-                TextButton.icon(
-                  onPressed: () => _showAddItemDialog(context, widget.viewModel),
-                  icon: const Icon(Icons.add_circle_outline_rounded),
-                  label: const Text('Add Item'),
-                ),
-                const SizedBox(width: 8),
-                Chip(
-                  label: Text('${filteredItems.length} items'),
-                ),
-              ],
+              ),
             ),
             const SizedBox(height: 12),
             TextField(
@@ -410,6 +407,10 @@ class _CatalogPanelState extends State<_CatalogPanel> {
                           child: _ProductCard(
                             item: item,
                             viewModel: widget.viewModel,
+                            onAddedToCart: () {
+                              _searchController.clear();
+                              setState(() {});
+                            },
                           ),
                         ),
                     ],
@@ -455,10 +456,15 @@ class CartScreen extends StatelessWidget {
 }
 
 class _ProductCard extends StatelessWidget {
-  const _ProductCard({required this.item, required this.viewModel});
+  const _ProductCard({
+    required this.item,
+    required this.viewModel,
+    this.onAddedToCart,
+  });
 
   final CrackerItem item;
   final SalesViewModel viewModel;
+  final VoidCallback? onAddedToCart;
 
   @override
   Widget build(BuildContext context) {
@@ -472,17 +478,17 @@ class _ProductCard extends StatelessWidget {
       elevation: 1,
       child: Padding(
         padding: const EdgeInsets.all(10),
-        child: Column(
+        child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          item.name,
+            Expanded(
+              child: (item.itemCode ?? '').isNotEmpty
+                  ? Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          '${item.category}-${item.subCategory.isEmpty ? 'General' : item.subCategory}-${item.name}',
                           style: const TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.bold,
@@ -490,77 +496,86 @@ class _ProductCard extends StatelessWidget {
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                         ),
-                      ),
-                      if (cartQuantity > 0)
-                        Container(
-                          margin: const EdgeInsets.only(left: 8),
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                          decoration: BoxDecoration(
-                            color: Colors.orange.shade50,
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(color: Colors.orange.shade200),
-                          ),
+                        Padding(
+                          padding: const EdgeInsets.only(top: 2),
                           child: Text(
-                            '$cartQuantity in cart',
-                            style: TextStyle(
-                              color: Colors.orange.shade800,
+                            item.itemCode!,
+                            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                              color: Colors.grey.shade600,
                               fontWeight: FontWeight.w700,
-                              fontSize: 10,
+                              letterSpacing: 0.2,
                             ),
                           ),
                         ),
-                    ],
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: item.stockAvailable > 0
-                        ? Colors.green.shade50
-                        : Colors.red.shade50,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Text(
-                    '${item.stockAvailable} in stock',
-                    style: TextStyle(
-                      color: item.stockAvailable > 0 ? Colors.green : Colors.red,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 11,
+                      ],
+                    )
+                  : Text(
+                      '${item.category}-${item.subCategory.isEmpty ? 'General' : item.subCategory}-${item.name}',
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                  ),
-                ),
-              ],
             ),
-            const SizedBox(height: 6),
-            Row(
+            const SizedBox(width: 8),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Expanded(
-                  child: Text(
-                    '${item.category} • ${item.subCategory.isEmpty ? 'General' : item.subCategory}',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Colors.grey.shade700,
+                if (cartQuantity > 0)
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 4),
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.shade50,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: Colors.orange.shade200),
+                    ),
+                    child: Text(
+                      '$cartQuantity in cart',
+                      style: TextStyle(
+                        color: Colors.orange.shade800,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 9,
+                      ),
                     ),
                   ),
-                ),
-                Text(
-                  '₹${item.unitPrice.toStringAsFixed(2)}',
-                  style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                InkWell(
-                  onTap: canAdd
-                      ? () {
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: item.stockAvailable > 0
+                            ? Colors.green.shade50
+                            : Colors.red.shade50,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text(
+                        '${item.stockAvailable} in stock',
+                        style: TextStyle(
+                          color: item.stockAvailable > 0 ? Colors.green : Colors.red,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 10,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      '₹${item.unitPrice.toStringAsFixed(2)}',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    if (cartQuantity > 0) ...[
+                      const SizedBox(width: 6),
+                      InkWell(
+                        onTap: () {
                           try {
-                            viewModel.addToCart(item);
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('${item.name} added to cart.'),
-                                duration: const Duration(seconds: 1),
-                              ),
-                            );
+                            viewModel.updateQuantity(item.id, cartQuantity - 1);
                           } catch (error) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
@@ -569,22 +584,56 @@ class _ProductCard extends StatelessWidget {
                               ),
                             );
                           }
-                        }
-                      : null,
-                  borderRadius: BorderRadius.circular(999),
-                  child: Container(
-                    width: 24,
-                    height: 24,
-                    decoration: BoxDecoration(
-                      color: canAdd ? Theme.of(context).colorScheme.primary : Colors.grey.shade300,
+                        },
+                        borderRadius: BorderRadius.circular(999),
+                        child: Container(
+                          width: 22,
+                          height: 22,
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade300,
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                          child: Icon(
+                            Icons.remove,
+                            color: Colors.grey.shade700,
+                            size: 15,
+                          ),
+                        ),
+                      ),
+                    ],
+                    const SizedBox(width: 6),
+                    InkWell(
+                      onTap: canAdd
+                          ? () {
+                              try {
+                                viewModel.addToCart(item);
+                                onAddedToCart?.call();
+                              } catch (error) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(error.toString()),
+                                    backgroundColor: Colors.red,
+                                  ),
+                                );
+                              }
+                            }
+                          : null,
                       borderRadius: BorderRadius.circular(999),
+                      child: Container(
+                        width: 22,
+                        height: 22,
+                        decoration: BoxDecoration(
+                          color: canAdd ? Theme.of(context).colorScheme.primary : Colors.grey.shade300,
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: Icon(
+                          Icons.add,
+                          color: canAdd ? Theme.of(context).colorScheme.onPrimary : Colors.grey.shade600,
+                          size: 15,
+                        ),
+                      ),
                     ),
-                    child: Icon(
-                      Icons.add,
-                      color: canAdd ? Theme.of(context).colorScheme.onPrimary : Colors.grey.shade600,
-                      size: 16,
-                    ),
-                  ),
+                  ],
                 ),
               ],
             ),

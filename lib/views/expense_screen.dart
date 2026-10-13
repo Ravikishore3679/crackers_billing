@@ -1,17 +1,322 @@
-import 'package:flutter/material.dart';
+import 'dart:async';
+import 'dart:convert';
 
-class ExpenseScreen extends StatelessWidget {
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+import '../services/firestore_service.dart';
+
+class ExpenseScreen extends StatefulWidget {
   const ExpenseScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final expenses = [
-      _ExpenseEntry(title: 'Raw materials', amount: 1840.00, icon: Icons.inventory_2_rounded),
-      _ExpenseEntry(title: 'Packaging', amount: 620.00, icon: Icons.local_shipping_rounded),
-      _ExpenseEntry(title: 'Transport', amount: 450.00, icon: Icons.local_shipping_rounded),
-      _ExpenseEntry(title: 'Staff wages', amount: 980.00, icon: Icons.people_rounded),
+  State<ExpenseScreen> createState() => _ExpenseScreenState();
+}
+
+class _ExpenseScreenState extends State<ExpenseScreen> {
+  static const String _storageKey = 'expense_entries_v1';
+  StreamSubscription<User?>? _authSubscription;
+
+  List<_ExpenseEntry> _entries = _ExpenseScreenState._defaultEntries();
+
+  static String _storageKeyForUser(String? uid) => '${_storageKey}_${uid ?? 'anonymous'}';
+
+  @override
+  void initState() {
+    super.initState();
+    _authSubscription = FirebaseAuth.instance.authStateChanges().listen((_) {
+      if (!mounted) {
+        return;
+      }
+      _loadEntries();
+    });
+    _loadEntries();
+  }
+
+  @override
+  void dispose() {
+    _authSubscription?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _loadEntries() async {
+    if (Firebase.apps.isNotEmpty) {
+      final uid = FirebaseAuth.instance.currentUser?.uid;
+      if (uid != null) {
+        final storedEntries = await FirestoreService.instance.fetchExpenseEntries(userId: uid);
+        final loadedEntries = storedEntries
+            .map((entry) => _ExpenseEntry.fromJson(entry))
+            .toList();
+
+        if (!mounted) {
+          return;
+        }
+
+        setState(() {
+          _entries = loadedEntries.isNotEmpty ? loadedEntries : _defaultEntries();
+        });
+
+        if (loadedEntries.isEmpty) {
+          await _saveEntries();
+        }
+        return;
+      }
+    }
+
+    final prefs = await SharedPreferences.getInstance();
+    final rawEntries = prefs.getString(_storageKeyForUser(FirebaseAuth.instance.currentUser?.uid));
+
+    if (rawEntries == null || rawEntries.isEmpty) {
+      final defaultEntries = _defaultEntries();
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _entries = defaultEntries;
+      });
+      await _saveEntries();
+      return;
+    }
+
+    try {
+      final decoded = jsonDecode(rawEntries) as List<dynamic>;
+      final loadedEntries = decoded
+          .map((entry) => _ExpenseEntry.fromJson(entry as Map<String, dynamic>))
+          .toList();
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _entries = loadedEntries;
+      });
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _entries = _defaultEntries();
+      });
+      await _saveEntries();
+    }
+  }
+
+  Future<void> _saveEntries() async {
+    if (Firebase.apps.isNotEmpty) {
+      final uid = FirebaseAuth.instance.currentUser?.uid;
+      if (uid != null) {
+        await FirestoreService.instance.saveExpenseEntries(
+          _entries.map((entry) => entry.toJson()).toList(),
+          userId: uid,
+        );
+        return;
+      }
+    }
+
+    final prefs = await SharedPreferences.getInstance();
+    final payload = jsonEncode(
+      _entries.map((entry) => entry.toJson()).toList(),
+    );
+    await prefs.setString(_storageKeyForUser(FirebaseAuth.instance.currentUser?.uid), payload);
+  }
+
+  static List<_ExpenseEntry> _defaultEntries() {
+    final now = DateTime.now();
+    return [
+      _ExpenseEntry(
+        title: 'Raw materials',
+        amount: 1840.00,
+        date: now.subtract(const Duration(days: 2)),
+        icon: Icons.inventory_2_rounded,
+      ),
+      _ExpenseEntry(
+        title: 'Packaging',
+        amount: 620.00,
+        date: now.subtract(const Duration(days: 4)),
+        icon: Icons.local_shipping_rounded,
+      ),
+      _ExpenseEntry(
+        title: 'Transport',
+        amount: 450.00,
+        date: now.subtract(const Duration(days: 6)),
+        icon: Icons.local_shipping_rounded,
+      ),
+      _ExpenseEntry(
+        title: 'Staff wages',
+        amount: 980.00,
+        date: now.subtract(const Duration(days: 7)),
+        icon: Icons.people_rounded,
+      ),
     ];
+  }
+
+  double get totalExpenditure => _entries.fold(0.0, (sum, entry) => sum + entry.amount);
+
+  double get monthExpenditure {
+    final now = DateTime.now();
+    return _entries
+        .where((entry) {
+          final date = entry.date ?? DateTime.now();
+          return date.year == now.year && date.month == now.month;
+        })
+        .fold(0.0, (sum, entry) => sum + entry.amount);
+  }
+
+  List<MapEntry<String, List<_ExpenseEntry>>> get groupedEntries {
+    final grouped = <String, List<_ExpenseEntry>>{};
+    for (final entry in _entries.toList()
+      ..sort((a, b) => (b.date ?? DateTime.now()).compareTo(a.date ?? DateTime.now()))) {
+      final key = _formatDate(entry.date ?? DateTime.now());
+      grouped.putIfAbsent(key, () => <_ExpenseEntry>[]).add(entry);
+    }
+    return grouped.entries.toList();
+  }
+
+  void _deleteExpense(_ExpenseEntry expense) {
+    setState(() {
+      _entries.remove(expense);
+    });
+    _saveEntries();
+  }
+
+  void _showAddExpenseDialog() {
+    final titleController = TextEditingController();
+    final amountController = TextEditingController();
+    DateTime selectedDate = DateTime.now();
+
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text('Add expense'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextField(
+                      controller: titleController,
+                      decoration: const InputDecoration(
+                        labelText: 'Title',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: amountController,
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      decoration: const InputDecoration(
+                        labelText: 'Amount',
+                        prefixText: '₹ ',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: () async {
+                          final picked = await showDatePicker(
+                            context: dialogContext,
+                            initialDate: selectedDate,
+                            firstDate: DateTime(2020),
+                            lastDate: DateTime.now().add(const Duration(days: 365)),
+                          );
+                          if (picked != null) {
+                            setDialogState(() {
+                              selectedDate = picked;
+                            });
+                          }
+                        },
+                        icon: const Icon(Icons.calendar_today_rounded),
+                        label: Text(_formatDate(selectedDate)),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                  child: const Text('Cancel'),
+                ),
+                FilledButton(
+                  onPressed: () {
+                    final title = titleController.text.trim();
+                    final amount = double.tryParse(amountController.text.trim()) ?? 0.0;
+                    if (title.isEmpty || amount <= 0) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Enter a valid title and amount.'),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                      return;
+                    }
+
+                    setState(() {
+                      _entries.insert(
+                        0,
+                        _ExpenseEntry(
+                          title: title,
+                          amount: amount,
+                          date: selectedDate,
+                          icon: _defaultExpenseIcon(title),
+                        ),
+                      );
+                    });
+                    _saveEntries();
+                    Navigator.of(dialogContext).pop();
+                  },
+                  child: const Text('Save expense'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  IconData _defaultExpenseIcon(String title) {
+    final normalized = title.toLowerCase();
+    if (normalized.contains('transport') || normalized.contains('delivery')) {
+      return Icons.local_shipping_rounded;
+    }
+    if (normalized.contains('pack')) {
+      return Icons.inventory_2_rounded;
+    }
+    if (normalized.contains('staff') || normalized.contains('salary') || normalized.contains('wage')) {
+      return Icons.people_rounded;
+    }
+    return Icons.receipt_long_rounded;
+  }
+
+  String _formatDate(DateTime? date) {
+    final value = date ?? DateTime.now();
+    final day = value.day.toString().padLeft(2, '0');
+    final month = value.month.toString().padLeft(2, '0');
+    final year = value.year;
+    return '$day/$month/$year';
+  }
+
+  static DateTime? _parseDate(dynamic rawValue) {
+    if (rawValue == null || rawValue.toString().isEmpty) {
+      return null;
+    }
+    final seconds = int.tryParse(rawValue.toString());
+    if (seconds == null) {
+      return null;
+    }
+    return DateTime.fromMillisecondsSinceEpoch(seconds);
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final isCompact = MediaQuery.sizeOf(context).width < 420;
+    final grouped = groupedEntries;
 
     return SafeArea(
       child: Container(
@@ -27,9 +332,10 @@ class ExpenseScreen extends StatelessWidget {
         ),
         child: Padding(
           padding: EdgeInsets.all(isCompact ? 10 : 16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
               Container(
                 width: double.infinity,
                 padding: EdgeInsets.all(isCompact ? 14 : 20),
@@ -79,64 +385,115 @@ class ExpenseScreen extends StatelessWidget {
                 spacing: isCompact ? 8 : 12,
                 runSpacing: isCompact ? 8 : 12,
                 children: [
-                  _ExpenseStatCard(title: 'This month', value: '₹4,890.00', color: Colors.red),
-                  _ExpenseStatCard(title: 'Daily avg', value: '₹163.00', color: Colors.orange),
-                  _ExpenseStatCard(title: 'Pending', value: '₹920.00', color: Colors.blue),
+                  _ExpenseStatCard(
+                    title: 'Total expenditure',
+                    value: '₹${totalExpenditure.toStringAsFixed(2)}',
+                    color: Colors.red,
+                  ),
+                  _ExpenseStatCard(
+                    title: 'This month',
+                    value: '₹${monthExpenditure.toStringAsFixed(2)}',
+                    color: Colors.orange,
+                  ),
+                  _ExpenseStatCard(
+                    title: 'Entries',
+                    value: '${_entries.length}',
+                    color: Colors.blue,
+                  ),
                 ],
               ),
               const SizedBox(height: 18),
-              const Text(
-                'Expense categories',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              Row(
+                children: [
+                  const Expanded(
+                    child: Text(
+                      'Expenses by date',
+                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                  TextButton.icon(
+                    onPressed: _showAddExpenseDialog,
+                    icon: const Icon(Icons.add_rounded),
+                    label: const Text('Add expense'),
+                  ),
+                ],
               ),
               const SizedBox(height: 12),
-              Expanded(
-                child: ListView.separated(
-                  itemCount: expenses.length,
-                  separatorBuilder: (_, _) => const SizedBox(height: 12),
-                  itemBuilder: (context, index) {
-                    final expense = expenses[index];
-                    return Container(
-                      padding: EdgeInsets.all(isCompact ? 12 : 16),
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.surface,
-                        borderRadius: BorderRadius.circular(18),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.04),
-                            blurRadius: 8,
-                            offset: const Offset(0, 3),
-                          ),
-                        ],
+              ...grouped.map((group) {
+                final dateLabel = group.key;
+                final dayTotal = group.value.fold<double>(0.0, (sum, item) => sum + item.amount);
+                return Container(
+                  width: double.infinity,
+                  margin: const EdgeInsets.only(bottom: 12),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.surface,
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.04),
+                        blurRadius: 8,
+                        offset: const Offset(0, 3),
                       ),
-                      child: Row(
+                    ],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
                         children: [
-                          Container(
-                            padding: const EdgeInsets.all(10),
-                            decoration: BoxDecoration(
-                              color: Colors.red.withValues(alpha: 0.12),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Icon(expense.icon, color: Colors.red),
-                          ),
-                          const SizedBox(width: 14),
-                          Expanded(
-                            child: Text(
-                              expense.title,
-                              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
-                            ),
-                          ),
                           Text(
-                            '₹${expense.amount.toStringAsFixed(2)}',
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17),
+                            dateLabel,
+                            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+                          ),
+                          const Spacer(),
+                          Text(
+                            '₹${dayTotal.toStringAsFixed(2)}',
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                           ),
                         ],
                       ),
-                    );
-                  },
-                ),
-              ),
+                      const SizedBox(height: 10),
+                      ...group.value.map((expense) {
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: Colors.red.withValues(alpha: 0.12),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Icon(expense.icon, size: 18, color: Colors.red),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  expense.title,
+                                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                                ),
+                              ),
+                              Text(
+                                '₹${expense.amount.toStringAsFixed(2)}',
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                              ),
+                              const SizedBox(width: 8),
+                              IconButton(
+                                tooltip: 'Delete expense',
+                                icon: const Icon(Icons.delete_outline_rounded, color: Colors.red),
+                                onPressed: () => _deleteExpense(expense),
+                              ),
+                            ],
+                          ),
+                        );
+                      }),
+                    ],
+                  ),
+                );
+              }),
             ],
+            ),
           ),
         ),
       ),
@@ -168,9 +525,9 @@ class _ExpenseStatCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
+            Text(title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
             const SizedBox(height: 8),
-            Text(value, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+            Text(value, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
           ],
         ),
       ),
@@ -182,10 +539,52 @@ class _ExpenseEntry {
   const _ExpenseEntry({
     required this.title,
     required this.amount,
+    required this.date,
     required this.icon,
   });
 
   final String title;
   final double amount;
+  final DateTime? date;
   final IconData icon;
+
+  factory _ExpenseEntry.fromJson(Map<String, dynamic> json) {
+    final parsedDate = _ExpenseScreenState._parseDate(json['date']);
+    return _ExpenseEntry(
+      title: json['title'] as String? ?? 'Expense',
+      amount: (json['amount'] as num?)?.toDouble() ?? 0.0,
+      date: parsedDate ?? DateTime.now(),
+      icon: _iconFromCode(json['icon'] as String? ?? 'receipt'),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'title': title,
+      'amount': amount,
+      'date': (date ?? DateTime.now()).millisecondsSinceEpoch,
+      'icon': _iconCode(icon),
+    };
+  }
+
+  static IconData _iconFromCode(String code) {
+    switch (code) {
+      case 'inventory':
+        return Icons.inventory_2_rounded;
+      case 'shipping':
+        return Icons.local_shipping_rounded;
+      case 'people':
+        return Icons.people_rounded;
+      case 'receipt':
+      default:
+        return Icons.receipt_long_rounded;
+    }
+  }
+
+  static String _iconCode(IconData icon) {
+    if (icon == Icons.inventory_2_rounded) return 'inventory';
+    if (icon == Icons.local_shipping_rounded) return 'shipping';
+    if (icon == Icons.people_rounded) return 'people';
+    return 'receipt';
+  }
 }

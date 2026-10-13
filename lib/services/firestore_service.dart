@@ -40,6 +40,95 @@ class FirestoreService {
   CollectionReference<Map<String, dynamic>> get _settingsCollection =>
       _db.collection('app_settings');
 
+  CollectionReference<Map<String, dynamic>> get _reportsCollection =>
+      _db.collection('reports');
+
+  CollectionReference<Map<String, dynamic>> get _expenseCollection =>
+      _db.collection('expenses');
+
+  Future<void> saveExpenseEntries(List<Map<String, dynamic>> entries, {String? userId}) async {
+    if (Firebase.apps.isEmpty) {
+      return;
+    }
+
+    final uid = resolveUserId(userId: userId);
+    if (uid == null || uid.isEmpty) {
+      return;
+    }
+
+    await _expenseCollection.doc(uid).set({
+      'userId': uid,
+      'entries': entries,
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
+  Future<List<Map<String, dynamic>>> fetchExpenseEntries({String? userId}) async {
+    if (Firebase.apps.isEmpty) {
+      return const [];
+    }
+
+    final uid = resolveUserId(userId: userId);
+    if (uid == null || uid.isEmpty) {
+      return const [];
+    }
+
+    final snapshot = await _expenseCollection.doc(uid).get();
+    final data = snapshot.data();
+    final rawEntries = data?['entries'];
+
+    if (rawEntries is! List) {
+      return const [];
+    }
+
+    return rawEntries
+        .map((entry) => Map<String, dynamic>.from(entry as Map))
+        .toList();
+  }
+
+  Future<void> saveReportSummary({
+    required double totalRevenue,
+    required int totalUnitsSold,
+    required double totalExpenditure,
+    String? userId,
+  }) async {
+    if (Firebase.apps.isEmpty) {
+      return;
+    }
+
+    final uid = resolveUserId(userId: userId);
+    if (uid == null || uid.isEmpty) {
+      return;
+    }
+
+    await _reportsCollection.doc(uid).set({
+      'userId': uid,
+      'totalRevenue': totalRevenue,
+      'totalUnitsSold': totalUnitsSold,
+      'totalExpenditure': totalExpenditure,
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
+  Future<Map<String, dynamic>> fetchReportSummary({String? userId}) async {
+    if (Firebase.apps.isEmpty) {
+      return {};
+    }
+
+    final uid = resolveUserId(userId: userId);
+    if (uid == null || uid.isEmpty) {
+      return {};
+    }
+
+    final snapshot = await _reportsCollection.doc(uid).get();
+    final data = snapshot.data();
+    if (data == null) {
+      return {};
+    }
+
+    return data;
+  }
+
   Future<void> saveInventoryItem(CrackerItem item, {String? userId}) async {
     if (Firebase.apps.isEmpty) {
       return;
