@@ -31,22 +31,44 @@ class FirestoreService {
 
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
-  CollectionReference<Map<String, dynamic>> get _salesCollection =>
+  CollectionReference<Map<String, dynamic>> get _usersCollection =>
+      _db.collection('users');
+
+  CollectionReference<Map<String, dynamic>> get _legacySalesCollection =>
       _db.collection('sales');
 
-  CollectionReference<Map<String, dynamic>> get _inventoryCollection =>
-      _db.collection('inventory');
-
-  CollectionReference<Map<String, dynamic>> get _settingsCollection =>
-      _db.collection('app_settings');
-
-  CollectionReference<Map<String, dynamic>> get _reportsCollection =>
+  CollectionReference<Map<String, dynamic>> get _legacyReportsCollection =>
       _db.collection('reports');
 
-  CollectionReference<Map<String, dynamic>> get _expenseCollection =>
-      _db.collection('expenses');
+  DocumentReference<Map<String, dynamic>> _userDocument(String uid) =>
+      _usersCollection.doc(uid);
 
-  Future<void> saveExpenseEntries(List<Map<String, dynamic>> entries, {String? userId}) async {
+  CollectionReference<Map<String, dynamic>> _salesCollection(String uid) =>
+      _userDocument(uid).collection('sales');
+
+  CollectionReference<Map<String, dynamic>> _inventoryCollection(String uid) =>
+      _userDocument(uid).collection('inventory');
+
+  CollectionReference<Map<String, dynamic>> _settingsCollection(String uid) =>
+      _userDocument(uid).collection('app_settings');
+
+  DocumentReference<Map<String, dynamic>> _reportsDocument(String uid) =>
+      _userDocument(uid).collection('reports').doc('summary');
+
+  DocumentReference<Map<String, dynamic>> _expenseDocument(String uid) =>
+      _userDocument(uid).collection('expenses').doc('entries');
+
+  Future<void> _ensureUserDocument(String uid) async {
+    await _userDocument(uid).set({
+      'uid': uid,
+      'lastActiveAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
+  Future<void> saveExpenseEntries(
+    List<Map<String, dynamic>> entries, {
+    String? userId,
+  }) async {
     if (Firebase.apps.isEmpty) {
       return;
     }
@@ -56,14 +78,18 @@ class FirestoreService {
       return;
     }
 
-    await _expenseCollection.doc(uid).set({
+    await _ensureUserDocument(uid);
+
+    await _expenseDocument(uid).set({
       'userId': uid,
       'entries': entries,
       'updatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
   }
 
-  Future<List<Map<String, dynamic>>> fetchExpenseEntries({String? userId}) async {
+  Future<List<Map<String, dynamic>>> fetchExpenseEntries({
+    String? userId,
+  }) async {
     if (Firebase.apps.isEmpty) {
       return const [];
     }
@@ -73,7 +99,9 @@ class FirestoreService {
       return const [];
     }
 
-    final snapshot = await _expenseCollection.doc(uid).get();
+    await _ensureUserDocument(uid);
+
+    final snapshot = await _expenseDocument(uid).get();
     final data = snapshot.data();
     final rawEntries = data?['entries'];
 
@@ -101,7 +129,9 @@ class FirestoreService {
       return;
     }
 
-    await _reportsCollection.doc(uid).set({
+    await _ensureUserDocument(uid);
+
+    await _reportsDocument(uid).set({
       'userId': uid,
       'totalRevenue': totalRevenue,
       'totalUnitsSold': totalUnitsSold,
@@ -120,13 +150,27 @@ class FirestoreService {
       return {};
     }
 
-    final snapshot = await _reportsCollection.doc(uid).get();
-    final data = snapshot.data();
-    if (data == null) {
+    await _ensureUserDocument(uid);
+
+    final scopedSnapshot = await _reportsDocument(uid).get();
+    final scopedData = scopedSnapshot.data();
+    if (scopedData != null) {
+      return scopedData;
+    }
+
+    final legacySnapshot = await _legacyReportsCollection.doc(uid).get();
+    final legacyData = legacySnapshot.data();
+    if (legacyData == null) {
       return {};
     }
 
-    return data;
+    await _reportsDocument(uid).set({
+      ...legacyData,
+      'userId': uid,
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+
+    return legacyData;
   }
 
   Future<void> saveInventoryItem(CrackerItem item, {String? userId}) async {
@@ -139,7 +183,9 @@ class FirestoreService {
       return;
     }
 
-    await _inventoryCollection.doc(item.id).set({
+    await _ensureUserDocument(uid);
+
+    await _inventoryCollection(uid).doc(item.id).set({
       'id': item.id,
       'name': item.name,
       'category': item.category,
@@ -166,7 +212,7 @@ class FirestoreService {
       return;
     }
 
-    await _inventoryCollection.doc(itemId).delete();
+    await _inventoryCollection(uid).doc(itemId).delete();
   }
 
   Future<List<CrackerItem>> fetchInventoryItems({String? userId}) async {
@@ -174,39 +220,16 @@ class FirestoreService {
       return const [];
     }
 
-    final resolvedUserId = resolveUserId(userId: userId);
-    final docsById = <String, QueryDocumentSnapshot<Map<String, dynamic>>>{};
-
-    final queries = <Future<QuerySnapshot<Map<String, dynamic>>>>[];
-    if (resolvedUserId != null) {
-      queries.add(_inventoryCollection.where('userId', isEqualTo: resolvedUserId).get());
-      queries.add(_inventoryCollection.where('userId', isEqualTo: 'anonymous').get());
-    } else {
-      queries.add(_inventoryCollection.where('userId', isEqualTo: 'anonymous').get());
+    final uid = resolveUserId(userId: userId);
+    if (uid == null || uid.isEmpty) {
+      return const [];
     }
 
-    for (final snapshot in await Future.wait(queries)) {
-      for (final doc in snapshot.docs) {
-        docsById.putIfAbsent(doc.id, () => doc);
-      }
-    }
+    await _ensureUserDocument(uid);
 
-    if (resolvedUserId != null) {
-      final anonymousItems = docsById.values
-          .where((doc) => doc.data()['userId'] == 'anonymous')
-          .toList();
+    final snapshot = await _inventoryCollection(uid).orderBy('name').get();
 
-      for (final doc in anonymousItems) {
-        final data = doc.data();
-        await _inventoryCollection.doc(doc.id).set({
-          ...data,
-          'userId': resolvedUserId,
-          'updatedAt': FieldValue.serverTimestamp(),
-        }, SetOptions(merge: true));
-      }
-    }
-
-    final items = docsById.values.map((doc) {
+    final items = snapshot.docs.map((doc) {
       final data = doc.data();
       return CrackerItem(
         id: data['id'] as String? ?? doc.id,
@@ -221,13 +244,15 @@ class FirestoreService {
         stockAvailable: (data['stockAvailable'] as num?)?.toInt() ?? 0,
         taxRate: (data['taxRate'] as num?)?.toDouble() ?? 0.18,
       );
-    }).toList()
-      ..sort((a, b) => a.name.compareTo(b.name));
+    }).toList()..sort((a, b) => a.name.compareTo(b.name));
 
     return items;
   }
 
-  Future<void> saveCategoryCatalog(Map<String, List<String>> catalog, {String? userId}) async {
+  Future<void> saveCategoryCatalog(
+    Map<String, List<String>> catalog, {
+    String? userId,
+  }) async {
     if (Firebase.apps.isEmpty) {
       return;
     }
@@ -237,20 +262,32 @@ class FirestoreService {
       return;
     }
 
-    await _settingsCollection.doc('inventory_catalog').set({
+    await _ensureUserDocument(uid);
+
+    await _settingsCollection(uid).doc('inventory_catalog').set({
       'catalog': catalog.map((key, value) => MapEntry(key, value)),
       'userId': uid,
       'updatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
   }
 
-  Future<Map<String, List<String>>> fetchCategoryCatalog({String? userId}) async {
+  Future<Map<String, List<String>>> fetchCategoryCatalog({
+    String? userId,
+  }) async {
     if (Firebase.apps.isEmpty) {
       return <String, List<String>>{};
     }
 
-    final uid = userId ?? FirebaseAuth.instance.currentUser?.uid ?? 'anonymous';
-    final snapshot = await _settingsCollection.doc('inventory_catalog').get();
+    final uid = resolveUserId(userId: userId);
+    if (uid == null || uid.isEmpty) {
+      return <String, List<String>>{};
+    }
+
+    await _ensureUserDocument(uid);
+
+    final snapshot = await _settingsCollection(
+      uid,
+    ).doc('inventory_catalog').get();
     final data = snapshot.data();
 
     if (data == null || data['catalog'] is! Map) {
@@ -266,14 +303,6 @@ class FirestoreService {
       }
     });
 
-    if (result.isNotEmpty && data['userId'] == uid) {
-      return result;
-    }
-
-    if (result.isEmpty && userId == null) {
-      return <String, List<String>>{};
-    }
-
     return result;
   }
 
@@ -282,9 +311,14 @@ class FirestoreService {
       return;
     }
 
-    final uid = resolveUserId(userId: userId) ?? 'anonymous';
+    final uid = resolveUserId(userId: userId);
+    if (uid == null || uid.isEmpty) {
+      return;
+    }
 
-    await _salesCollection.add({
+    await _ensureUserDocument(uid);
+
+    await _salesCollection(uid).doc(invoice.id).set({
       'id': invoice.id,
       'customerName': invoice.customerName,
       'customerPhone': invoice.customerPhone,
@@ -296,7 +330,7 @@ class FirestoreService {
       'lineItems': invoice.lineItems.map((item) => item.toMap()).toList(),
       'userId': uid,
       'createdAt': FieldValue.serverTimestamp(),
-    });
+    }, SetOptions(merge: true));
   }
 
   Stream<List<Invoice>> invoicesStream({String? userId}) {
@@ -304,11 +338,12 @@ class FirestoreService {
       return const Stream.empty();
     }
 
-    Query<Map<String, dynamic>> query = _salesCollection.orderBy('date', descending: true);
-
-    if (userId != null) {
-      query = query.where('userId', isEqualTo: userId);
+    final uid = resolveUserId(userId: userId);
+    if (uid == null || uid.isEmpty) {
+      return const Stream.empty();
     }
+
+    final query = _salesCollection(uid).orderBy('date', descending: true);
 
     return query.snapshots().map((snapshot) {
       return snapshot.docs.map((doc) {
@@ -337,14 +372,52 @@ class FirestoreService {
       return const [];
     }
 
-    Query<Map<String, dynamic>> query = _salesCollection.orderBy('date', descending: true);
-
-    if (userId != null) {
-      query = query.where('userId', isEqualTo: userId);
+    final uid = resolveUserId(userId: userId);
+    if (uid == null || uid.isEmpty) {
+      return const [];
     }
 
-    final snapshot = await query.get();
-    return snapshot.docs.map((doc) {
+    await _ensureUserDocument(uid);
+
+    final scopedSnapshot = await _salesCollection(
+      uid,
+    ).orderBy('date', descending: true).get();
+
+    if (scopedSnapshot.docs.isNotEmpty) {
+      return scopedSnapshot.docs.map((doc) {
+        final data = doc.data();
+        final lineItems = (data['lineItems'] as List<dynamic>? ?? const [])
+            .map((item) => Map<String, dynamic>.from(item as Map))
+            .map((item) => InvoiceLineItem.fromMap(item))
+            .toList();
+
+        final invoice = Invoice(
+          id: data['id'] as String? ?? doc.id,
+          customerName: data['customerName'] as String? ?? '',
+          customerPhone: data['customerPhone'] as String? ?? '',
+          date: (data['date'] as Timestamp).toDate(),
+          lineItems: lineItems,
+          discountAmount: (data['discountAmount'] as num?)?.toDouble() ?? 0.0,
+        );
+        invoice.recalculateTotals();
+        return invoice;
+      }).toList();
+    }
+
+    final legacySnapshot = await _legacySalesCollection
+        .where('userId', isEqualTo: uid)
+        .orderBy('date', descending: true)
+        .get();
+
+    for (final doc in legacySnapshot.docs) {
+      final data = doc.data();
+      final scopedId = data['id'] as String? ?? doc.id;
+      await _salesCollection(
+        uid,
+      ).doc(scopedId).set({...data, 'userId': uid}, SetOptions(merge: true));
+    }
+
+    return legacySnapshot.docs.map((doc) {
       final data = doc.data();
       final lineItems = (data['lineItems'] as List<dynamic>? ?? const [])
           .map((item) => Map<String, dynamic>.from(item as Map))

@@ -12,9 +12,11 @@ import '../services/firestore_service.dart';
 class SalesViewModel extends ChangeNotifier {
   StreamSubscription<User?>? _authSubscription;
 
-  String? get _currentUserId => Firebase.apps.isEmpty ? null : FirebaseAuth.instance.currentUser?.uid;
+  String? get _currentUserId =>
+      Firebase.apps.isEmpty ? null : FirebaseAuth.instance.currentUser?.uid;
 
-  SalesViewModel({List<CrackerItem>? catalog}) : _catalog = List<CrackerItem>.from(catalog ?? defaultCatalog) {
+  SalesViewModel({List<CrackerItem>? catalog})
+    : _catalog = List<CrackerItem>.from(catalog ?? defaultCatalog) {
     discountController.text = '0.00';
     if (Firebase.apps.isNotEmpty) {
       _authSubscription = FirebaseAuth.instance.authStateChanges().listen((_) {
@@ -123,28 +125,23 @@ class SalesViewModel extends ChangeNotifier {
   Invoice? get lastGeneratedInvoice => _lastGeneratedInvoice;
   String? get errorMessage => _errorMessage;
   double get discountAmount => _discountAmount;
-  double get totalRevenue => _invoices.fold(
-        0.0,
-        (total, invoice) => total + invoice.netTotal,
-      );
+  double get totalRevenue =>
+      _invoices.fold(0.0, (total, invoice) => total + invoice.netTotal);
   int get totalUnitsSold => _invoices.fold(
-        0,
-        (total, invoice) => total +
-            invoice.lineItems.fold(
-              0,
-              (lineTotal, item) => lineTotal + item.quantity,
-            ),
-      );
+    0,
+    (total, invoice) =>
+        total +
+        invoice.lineItems.fold(
+          0,
+          (lineTotal, item) => lineTotal + item.quantity,
+        ),
+  );
 
-  double get grossTotal => _cart.fold(
-        0.0,
-        (total, lineItem) => total + lineItem.subtotal,
-      );
+  double get grossTotal =>
+      _cart.fold(0.0, (total, lineItem) => total + lineItem.subtotal);
 
-  double get taxTotal => _cart.fold(
-        0.0,
-        (total, lineItem) => total + lineItem.taxAmount,
-      );
+  double get taxTotal =>
+      _cart.fold(0.0, (total, lineItem) => total + lineItem.taxAmount);
 
   double get netTotal {
     final safeDiscount = _discountAmount.clamp(0.0, grossTotal);
@@ -152,6 +149,12 @@ class SalesViewModel extends ChangeNotifier {
   }
 
   Future<void> loadCatalog() async {
+    if (_currentUserId == null) {
+      _errorMessage = null;
+      notifyListeners();
+      return;
+    }
+
     try {
       final items = await FirestoreService.instance.fetchInventoryItems(
         userId: _currentUserId,
@@ -195,7 +198,9 @@ class SalesViewModel extends ChangeNotifier {
         ..addAll(invoices);
 
       if (reportSummary.isNotEmpty) {
-        totalExpenditure = (reportSummary['totalExpenditure'] as num?)?.toDouble() ?? totalExpenditure;
+        totalExpenditure =
+            (reportSummary['totalExpenditure'] as num?)?.toDouble() ??
+            totalExpenditure;
       }
       notifyListeners();
     } catch (error) {
@@ -261,7 +266,8 @@ class SalesViewModel extends ChangeNotifier {
   CrackerItem _itemById(String itemId) {
     return _catalog.firstWhere(
       (item) => item.id == itemId,
-      orElse: () => throw StateError('Requested cracker item not found: $itemId'),
+      orElse: () =>
+          throw StateError('Requested cracker item not found: $itemId'),
     );
   }
 
@@ -299,13 +305,13 @@ class SalesViewModel extends ChangeNotifier {
       notifyListeners();
 
       if (Firebase.apps.isNotEmpty) {
-        FirestoreService.instance.saveInventoryItem(
-          mergedItem,
-          userId: _currentUserId,
-        ).catchError((error) {
-          _errorMessage = 'Item updated locally but cloud sync failed: $error';
-          notifyListeners();
-        });
+        FirestoreService.instance
+            .saveInventoryItem(mergedItem, userId: _currentUserId)
+            .catchError((error) {
+              _errorMessage =
+                  'Item updated locally but cloud sync failed: $error';
+              notifyListeners();
+            });
       }
       return;
     }
@@ -319,13 +325,12 @@ class SalesViewModel extends ChangeNotifier {
     notifyListeners();
 
     if (Firebase.apps.isNotEmpty) {
-      FirestoreService.instance.saveInventoryItem(
-        item,
-        userId: _currentUserId,
-      ).catchError((error) {
-        _errorMessage = 'Item saved locally but cloud sync failed: $error';
-        notifyListeners();
-      });
+      FirestoreService.instance
+          .saveInventoryItem(item, userId: _currentUserId)
+          .catchError((error) {
+            _errorMessage = 'Item saved locally but cloud sync failed: $error';
+            notifyListeners();
+          });
     }
   }
 
@@ -337,7 +342,8 @@ class SalesViewModel extends ChangeNotifier {
     }
 
     if (!_canAddQuantity(item, 1)) {
-      _errorMessage = 'Only ${item.stockAvailable} units of ${item.name} are available in stock.';
+      _errorMessage =
+          'Only ${item.stockAvailable} units of ${item.name} are available in stock.';
       notifyListeners();
       throw StateError(_errorMessage!);
     }
@@ -370,13 +376,13 @@ class SalesViewModel extends ChangeNotifier {
     notifyListeners();
 
     if (Firebase.apps.isNotEmpty) {
-      FirestoreService.instance.deleteInventoryItem(
-        itemId,
-        userId: _currentUserId,
-      ).catchError((error) {
-        _errorMessage = 'Item removed locally but cloud sync failed: $error';
-        notifyListeners();
-      });
+      FirestoreService.instance
+          .deleteInventoryItem(itemId, userId: _currentUserId)
+          .catchError((error) {
+            _errorMessage =
+                'Item removed locally but cloud sync failed: $error';
+            notifyListeners();
+          });
     }
   }
 
@@ -388,7 +394,8 @@ class SalesViewModel extends ChangeNotifier {
 
     final item = _itemById(itemId);
     if (quantity > item.stockAvailable) {
-      _errorMessage = 'Only ${item.stockAvailable} units of ${item.name} are available in stock.';
+      _errorMessage =
+          'Only ${item.stockAvailable} units of ${item.name} are available in stock.';
       notifyListeners();
       throw StateError(_errorMessage!);
     }
@@ -414,7 +421,8 @@ class SalesViewModel extends ChangeNotifier {
 
   Future<Invoice> checkout() async {
     if (_cart.isEmpty) {
-      _errorMessage = 'Your cart is empty. Add items before generating the invoice.';
+      _errorMessage =
+          'Your cart is empty. Add items before generating the invoice.';
       notifyListeners();
       throw StateError(_errorMessage!);
     }
@@ -430,7 +438,9 @@ class SalesViewModel extends ChangeNotifier {
     );
 
     for (final entry in _cart) {
-      final index = _catalog.indexWhere((item) => item.id == entry.crackerItem.id);
+      final index = _catalog.indexWhere(
+        (item) => item.id == entry.crackerItem.id,
+      );
       if (index != -1) {
         final currentItem = _catalog[index];
         final nextStock = currentItem.stockAvailable - entry.quantity;
@@ -460,7 +470,8 @@ class SalesViewModel extends ChangeNotifier {
         ),
         totalUnitsSold: _invoices.fold(
           0,
-          (sum, invoice) => sum +
+          (sum, invoice) =>
+              sum +
               invoice.lineItems.fold(
                 0,
                 (lineSum, item) => lineSum + item.quantity,

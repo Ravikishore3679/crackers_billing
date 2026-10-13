@@ -12,7 +12,10 @@ class InventoryScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final viewModel = context.watch<SalesViewModel>();
     final totalItems = viewModel.catalog.length;
-    final totalStock = viewModel.catalog.fold<int>(0, (sum, item) => sum + item.stockAvailable);
+    final totalStock = viewModel.catalog.fold<int>(
+      0,
+      (sum, item) => sum + item.stockAvailable,
+    );
     final inventoryValue = viewModel.catalog.fold<double>(
       0,
       (sum, item) => sum + (item.unitPrice * item.stockAvailable),
@@ -38,7 +41,9 @@ class InventoryScreen extends StatelessWidget {
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: [
-                Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.55),
+                Theme.of(
+                  context,
+                ).colorScheme.primaryContainer.withValues(alpha: 0.55),
                 Theme.of(context).colorScheme.surface,
               ],
             ),
@@ -70,7 +75,11 @@ class InventoryScreen extends StatelessWidget {
                           color: Colors.teal.withValues(alpha: 0.12),
                           borderRadius: BorderRadius.circular(14),
                         ),
-                        child: const Icon(Icons.inventory_2_rounded, color: Colors.teal, size: 24),
+                        child: const Icon(
+                          Icons.inventory_2_rounded,
+                          color: Colors.teal,
+                          size: 24,
+                        ),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
@@ -87,7 +96,10 @@ class InventoryScreen extends StatelessWidget {
                             const SizedBox(height: 2),
                             Text(
                               'Track stock and product movement',
-                              style: TextStyle(color: Colors.grey, fontSize: 11),
+                              style: TextStyle(
+                                color: Colors.grey,
+                                fontSize: 11,
+                              ),
                             ),
                           ],
                         ),
@@ -98,7 +110,8 @@ class InventoryScreen extends StatelessWidget {
                 const SizedBox(height: 12),
                 LayoutBuilder(
                   builder: (context, constraints) {
-                    final cardWidth = (constraints.maxWidth - (isCompact ? 12 : 20)) / 2;
+                    final cardWidth =
+                        (constraints.maxWidth - (isCompact ? 12 : 20)) / 2;
                     return SizedBox(
                       width: constraints.maxWidth,
                       child: Row(
@@ -149,12 +162,17 @@ class InventoryScreen extends StatelessWidget {
                             final lowStock = item.stockAvailable <= 5;
 
                             return Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 10,
+                              ),
                               decoration: BoxDecoration(
                                 color: Theme.of(context).colorScheme.surface,
                                 borderRadius: BorderRadius.circular(14),
                                 border: Border.all(
-                                  color: lowStock ? Colors.orange.withValues(alpha: 0.35) : Colors.transparent,
+                                  color: lowStock
+                                      ? Colors.orange.withValues(alpha: 0.35)
+                                      : Colors.transparent,
                                 ),
                                 boxShadow: [
                                   BoxShadow(
@@ -171,28 +189,44 @@ class InventoryScreen extends StatelessWidget {
                                     width: 28,
                                     height: 28,
                                     decoration: BoxDecoration(
-                                      color: lowStock ? Colors.orange.withValues(alpha: 0.12) : Colors.teal.withValues(alpha: 0.12),
+                                      color: lowStock
+                                          ? Colors.orange.withValues(
+                                              alpha: 0.12,
+                                            )
+                                          : Colors.teal.withValues(alpha: 0.12),
                                       borderRadius: BorderRadius.circular(8),
                                     ),
                                     alignment: Alignment.center,
                                     child: Text(
-                                      item.name.isNotEmpty ? item.name[0].toUpperCase() : 'I',
-                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
+                                      item.name.isNotEmpty
+                                          ? item.name[0].toUpperCase()
+                                          : 'I',
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 11,
+                                      ),
                                     ),
                                   ),
                                   const SizedBox(width: 10),
                                   Expanded(
                                     child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
                                         Text(
                                           item.name,
-                                          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+                                          style: const TextStyle(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w700,
+                                          ),
                                         ),
                                         const SizedBox(height: 2),
                                         Text(
                                           '${item.category} • ${item.subCategory.isEmpty ? 'General' : item.subCategory}',
-                                          style: TextStyle(color: Colors.grey.shade700, fontSize: 11),
+                                          style: TextStyle(
+                                            color: Colors.grey.shade700,
+                                            fontSize: 11,
+                                          ),
                                         ),
                                         const SizedBox(height: 2),
                                         Text(
@@ -212,13 +246,18 @@ class InventoryScreen extends StatelessWidget {
                                     children: [
                                       Text(
                                         '₹${item.unitPrice.toStringAsFixed(2)}',
-                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 12,
+                                        ),
                                       ),
                                       const SizedBox(height: 4),
                                       Text(
                                         '${item.stockAvailable}',
                                         style: TextStyle(
-                                          color: lowStock ? Colors.orange.shade800 : Colors.green.shade700,
+                                          color: lowStock
+                                              ? Colors.orange.shade800
+                                              : Colors.green.shade700,
                                           fontWeight: FontWeight.w700,
                                           fontSize: 11,
                                         ),
@@ -227,10 +266,20 @@ class InventoryScreen extends StatelessWidget {
                                   ),
                                   IconButton(
                                     tooltip: 'Remove item',
-                                    icon: const Icon(Icons.delete_outline_rounded, size: 18),
+                                    icon: const Icon(
+                                      Icons.delete_outline_rounded,
+                                      size: 18,
+                                    ),
                                     color: Colors.red.shade700,
-                                    constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                                    onPressed: () => _confirmDeleteItem(context, viewModel, item),
+                                    constraints: const BoxConstraints(
+                                      minWidth: 32,
+                                      minHeight: 32,
+                                    ),
+                                    onPressed: () => _confirmDeleteItem(
+                                      context,
+                                      viewModel,
+                                      item,
+                                    ),
                                   ),
                                 ],
                               ),
@@ -246,7 +295,11 @@ class InventoryScreen extends StatelessWidget {
     );
   }
 
-  static void _confirmDeleteItem(BuildContext context, SalesViewModel viewModel, CrackerItem item) {
+  static void _confirmDeleteItem(
+    BuildContext context,
+    SalesViewModel viewModel,
+    CrackerItem item,
+  ) {
     showDialog<void>(
       context: context,
       builder: (dialogContext) {
@@ -263,7 +316,9 @@ class InventoryScreen extends StatelessWidget {
                 viewModel.removeInventoryItem(item.id);
                 Navigator.of(dialogContext).pop();
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('${item.name} removed from inventory')),
+                  SnackBar(
+                    content: Text('${item.name} removed from inventory'),
+                  ),
                 );
               },
               icon: const Icon(Icons.delete_forever_rounded),
@@ -275,7 +330,10 @@ class InventoryScreen extends StatelessWidget {
     );
   }
 
-  static void _showAddItemDialog(BuildContext context, SalesViewModel viewModel) {
+  static void _showAddItemDialog(
+    BuildContext context,
+    SalesViewModel viewModel,
+  ) {
     final nameController = TextEditingController();
     final priceController = TextEditingController();
     final stockController = TextEditingController();
@@ -284,8 +342,11 @@ class InventoryScreen extends StatelessWidget {
     String? selectedCategory = InventoryCatalogManager.categories.isNotEmpty
         ? InventoryCatalogManager.categories.first
         : null;
-    String? selectedSubCategory = selectedCategory != null &&
-            InventoryCatalogManager.subcategoriesFor(selectedCategory).isNotEmpty
+    String? selectedSubCategory =
+        selectedCategory != null &&
+            InventoryCatalogManager.subcategoriesFor(
+              selectedCategory,
+            ).isNotEmpty
         ? InventoryCatalogManager.subcategoriesFor(selectedCategory).first
         : null;
 
@@ -298,8 +359,13 @@ class InventoryScreen extends StatelessWidget {
         return;
       }
 
-      final nextSequence = viewModel.catalog
-              .where((item) => item.category == category && item.subCategory == subCategory)
+      final nextSequence =
+          viewModel.catalog
+              .where(
+                (item) =>
+                    item.category == category &&
+                    item.subCategory == subCategory,
+              )
               .length +
           1;
 
@@ -328,7 +394,9 @@ class InventoryScreen extends StatelessWidget {
 
             if (selectedSubCategory != null &&
                 !subCategoryOptions.contains(selectedSubCategory)) {
-              selectedSubCategory = subCategoryOptions.isNotEmpty ? subCategoryOptions.first : null;
+              selectedSubCategory = subCategoryOptions.isNotEmpty
+                  ? subCategoryOptions.first
+                  : null;
             }
 
             return AlertDialog(
@@ -355,8 +423,13 @@ class InventoryScreen extends StatelessWidget {
                         if (value == null) return;
                         setState(() {
                           selectedCategory = value;
-                          selectedSubCategory = InventoryCatalogManager.subcategoriesFor(value).isNotEmpty
-                              ? InventoryCatalogManager.subcategoriesFor(value).first
+                          selectedSubCategory =
+                              InventoryCatalogManager.subcategoriesFor(
+                                value,
+                              ).isNotEmpty
+                              ? InventoryCatalogManager.subcategoriesFor(
+                                  value,
+                                ).first
                               : null;
                         });
                         updateCode();
@@ -407,7 +480,9 @@ class InventoryScreen extends StatelessWidget {
                     const SizedBox(height: 12),
                     TextField(
                       controller: priceController,
-                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
                       decoration: const InputDecoration(
                         labelText: 'Price',
                         prefixText: '₹ ',
@@ -446,18 +521,34 @@ class InventoryScreen extends StatelessWidget {
                       final category = selectedCategory?.trim() ?? '';
                       final subCategory = selectedSubCategory?.trim() ?? '';
                       final name = nameController.text.trim();
-                      final quantity = int.tryParse(stockController.text.trim()) ?? 0;
-                      final price = double.tryParse(priceController.text.trim()) ?? 0.0;
+                      final quantity =
+                          int.tryParse(stockController.text.trim()) ?? 0;
+                      final price =
+                          double.tryParse(priceController.text.trim()) ?? 0.0;
 
-                      if (category.isEmpty || subCategory.isEmpty || name.isEmpty) {
-                        throw StateError('Category, subcategory and item name are required.');
+                      if (category.isEmpty ||
+                          subCategory.isEmpty ||
+                          name.isEmpty) {
+                        throw StateError(
+                          'Category, subcategory and item name are required.',
+                        );
                       }
 
-                      final categoryIndex = InventoryCodeGenerator.resolveCategoryIndex(category);
-                      final subCategoryIndex = InventoryCodeGenerator.resolveSubCategoryIndex(subCategory);
-                      final variantIndex = InventoryCodeGenerator.resolveVariantIndex(name);
-                      final nextSequence = viewModel.catalog
-                              .where((item) => item.category == category && item.subCategory == subCategory)
+                      final categoryIndex =
+                          InventoryCodeGenerator.resolveCategoryIndex(category);
+                      final subCategoryIndex =
+                          InventoryCodeGenerator.resolveSubCategoryIndex(
+                            subCategory,
+                          );
+                      final variantIndex =
+                          InventoryCodeGenerator.resolveVariantIndex(name);
+                      final nextSequence =
+                          viewModel.catalog
+                              .where(
+                                (item) =>
+                                    item.category == category &&
+                                    item.subCategory == subCategory,
+                              )
                               .length +
                           1;
                       final itemCode = InventoryCodeGenerator.generateAutoCode(
@@ -474,11 +565,15 @@ class InventoryScreen extends StatelessWidget {
                         subCategory: subCategory,
                         unitPrice: price,
                         stockAvailable: quantity,
-                        categoryCode: InventoryCodeGenerator.generateCategoryCode(categoryIndex),
-                        subCategoryCode: InventoryCodeGenerator.generateSubcategoryCode(
-                          categoryIndex,
-                          subCategoryIndex,
-                        ),
+                        categoryCode:
+                            InventoryCodeGenerator.generateCategoryCode(
+                              categoryIndex,
+                            ),
+                        subCategoryCode:
+                            InventoryCodeGenerator.generateSubcategoryCode(
+                              categoryIndex,
+                              subCategoryIndex,
+                            ),
                         variantCode: InventoryCodeGenerator.generateVariantCode(
                           categoryIndex,
                           subCategoryIndex,
@@ -490,7 +585,11 @@ class InventoryScreen extends StatelessWidget {
                       viewModel.addCatalogItem(item);
                       Navigator.of(dialogContext).pop();
                       ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Added ${item.name} with code $itemCode')),
+                        SnackBar(
+                          content: Text(
+                            'Added ${item.name} with code $itemCode',
+                          ),
+                        ),
                       );
                     } catch (error) {
                       ScaffoldMessenger.of(context).showSnackBar(
@@ -511,7 +610,7 @@ class InventoryScreen extends StatelessWidget {
     );
   }
 
-  static void _showManageCategoriesDialog(BuildContext context) {
+  static Future<void> _showManageCategoriesDialog(BuildContext context) {
     final categoryController = TextEditingController();
     final subCategoryController = TextEditingController();
     final pageController = PageController();
@@ -520,7 +619,7 @@ class InventoryScreen extends StatelessWidget {
         ? InventoryCatalogManager.categories.first
         : '';
 
-    showDialog<void>(
+    return showDialog<void>(
       context: context,
       builder: (dialogContext) {
         return StatefulBuilder(
@@ -538,7 +637,9 @@ class InventoryScreen extends StatelessWidget {
               return Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: Theme.of(innerContext).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+                  color: Theme.of(
+                    innerContext,
+                  ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Row(
@@ -585,8 +686,14 @@ class InventoryScreen extends StatelessWidget {
                         setState(() => pageIndex = 0);
                       }
                     },
-                    icon: Icon(pageIndex == 0 ? Icons.folder_copy_rounded : Icons.category_rounded),
-                    label: Text(pageIndex == 0 ? 'Subcategories' : 'Categories'),
+                    icon: Icon(
+                      pageIndex == 0
+                          ? Icons.folder_copy_rounded
+                          : Icons.category_rounded,
+                    ),
+                    label: Text(
+                      pageIndex == 0 ? 'Subcategories' : 'Categories',
+                    ),
                   ),
                 ],
               ),
@@ -616,7 +723,10 @@ class InventoryScreen extends StatelessWidget {
                           },
                         ),
                         const SizedBox(height: 12),
-                        const Text('Categories', style: TextStyle(fontWeight: FontWeight.w700)),
+                        const Text(
+                          'Categories',
+                          style: TextStyle(fontWeight: FontWeight.w700),
+                        ),
                         const SizedBox(height: 8),
                         if (categories.isEmpty)
                           const Text('No categories yet.')
@@ -624,37 +734,62 @@ class InventoryScreen extends StatelessWidget {
                           Expanded(
                             child: ListView.separated(
                               itemCount: categories.length,
-                              separatorBuilder: (_, _) => const SizedBox(height: 8),
+                              separatorBuilder: (_, _) =>
+                                  const SizedBox(height: 8),
                               itemBuilder: (context, index) {
                                 final item = categories[index];
                                 return Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 10,
+                                  ),
                                   decoration: BoxDecoration(
-                                    color: Theme.of(innerContext).colorScheme.surfaceContainerLow,
+                                    color: Theme.of(
+                                      innerContext,
+                                    ).colorScheme.surfaceContainerLow,
                                     borderRadius: BorderRadius.circular(12),
                                   ),
                                   child: Row(
                                     children: [
                                       Expanded(
-                                        child: Text(item, style: const TextStyle(fontWeight: FontWeight.w600)),
+                                        child: Text(
+                                          item,
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
                                       ),
                                       IconButton(
                                         tooltip: 'Delete category',
                                         onPressed: () {
-                                          final removed = InventoryCatalogManager.removeCategory(item);
+                                          final removed =
+                                              InventoryCatalogManager.removeCategory(
+                                                item,
+                                              );
                                           if (removed) {
                                             setState(() {
                                               if (selectedCategory == item) {
-                                                selectedCategory = categories
-                                                    .where((entry) => entry != item)
-                                                    .isNotEmpty
-                                                    ? categories.where((entry) => entry != item).first
+                                                selectedCategory =
+                                                    categories
+                                                        .where(
+                                                          (entry) =>
+                                                              entry != item,
+                                                        )
+                                                        .isNotEmpty
+                                                    ? categories
+                                                          .where(
+                                                            (entry) =>
+                                                                entry != item,
+                                                          )
+                                                          .first
                                                     : '';
                                               }
                                             });
                                           }
                                         },
-                                        icon: const Icon(Icons.delete_outline_rounded),
+                                        icon: const Icon(
+                                          Icons.delete_outline_rounded,
+                                        ),
                                       ),
                                     ],
                                   ),
@@ -668,7 +803,9 @@ class InventoryScreen extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         DropdownButtonFormField<String>(
-                          initialValue: categories.contains(selectedCategory) ? selectedCategory : null,
+                          initialValue: categories.contains(selectedCategory)
+                              ? selectedCategory
+                              : null,
                           decoration: const InputDecoration(
                             labelText: 'Category',
                             border: OutlineInputBorder(),
@@ -693,11 +830,16 @@ class InventoryScreen extends StatelessWidget {
                           controller: subCategoryController,
                           label: 'New subcategory',
                           onAdd: () {
-                            final newSubCategory = subCategoryController.text.trim();
-                            if (newSubCategory.isEmpty || selectedCategory.isEmpty) {
+                            final newSubCategory = subCategoryController.text
+                                .trim();
+                            if (newSubCategory.isEmpty ||
+                                selectedCategory.isEmpty) {
                               return;
                             }
-                            InventoryCatalogManager.addSubcategory(selectedCategory, newSubCategory);
+                            InventoryCatalogManager.addSubcategory(
+                              selectedCategory,
+                              newSubCategory,
+                            );
                             subCategoryController.clear();
                             setState(() {});
                           },
@@ -719,11 +861,19 @@ class InventoryScreen extends StatelessWidget {
                                   .map(
                                     (item) => InputChip(
                                       label: Text(item),
-                                      backgroundColor: Theme.of(innerContext).colorScheme.primaryContainer,
+                                      backgroundColor: Theme.of(
+                                        innerContext,
+                                      ).colorScheme.primaryContainer,
                                       onPressed: () {},
-                                      deleteIcon: const Icon(Icons.close, size: 18),
+                                      deleteIcon: const Icon(
+                                        Icons.close,
+                                        size: 18,
+                                      ),
                                       onDeleted: () {
-                                        InventoryCatalogManager.removeSubcategory(selectedCategory, item);
+                                        InventoryCatalogManager.removeSubcategory(
+                                          selectedCategory,
+                                          item,
+                                        );
                                         setState(() {});
                                       },
                                     ),
@@ -756,7 +906,8 @@ class PurchaseOrderEntryScreen extends StatefulWidget {
   final SalesViewModel viewModel;
 
   @override
-  State<PurchaseOrderEntryScreen> createState() => _PurchaseOrderEntryScreenState();
+  State<PurchaseOrderEntryScreen> createState() =>
+      _PurchaseOrderEntryScreenState();
 }
 
 class _PurchaseOrderEntryScreenState extends State<PurchaseOrderEntryScreen> {
@@ -790,24 +941,39 @@ class _PurchaseOrderEntryScreenState extends State<PurchaseOrderEntryScreen> {
       final quantity = int.tryParse(line.quantityController.text.trim()) ?? 0;
       final price = double.tryParse(line.priceController.text.trim()) ?? 0.0;
 
-      if (category.isEmpty || subCategory.isEmpty || name.isEmpty || quantity <= 0) {
+      if (category.isEmpty ||
+          subCategory.isEmpty ||
+          name.isEmpty ||
+          quantity <= 0) {
         continue;
       }
 
-      final categoryIndex = InventoryCodeGenerator.resolveCategoryIndex(category);
-      final subCategoryIndex = InventoryCodeGenerator.resolveSubCategoryIndex(subCategory);
+      final categoryIndex = InventoryCodeGenerator.resolveCategoryIndex(
+        category,
+      );
+      final subCategoryIndex = InventoryCodeGenerator.resolveSubCategoryIndex(
+        subCategory,
+      );
       final variantIndex = InventoryCodeGenerator.resolveVariantIndex(name);
       final categoryKey = '$category|$subCategory';
       final currentBatchCount = batchSequenceCount[categoryKey] ?? 0;
-      final nextSequence = widget.viewModel.catalog
-              .where((item) => item.category == category && item.subCategory == subCategory)
+      final nextSequence =
+          widget.viewModel.catalog
+              .where(
+                (item) =>
+                    item.category == category &&
+                    item.subCategory == subCategory,
+              )
               .length +
           currentBatchCount +
           1;
       batchSequenceCount[categoryKey] = currentBatchCount + 1;
 
       final existingCodes = widget.viewModel.catalog
-          .where((item) => item.category == category && item.subCategory == subCategory)
+          .where(
+            (item) =>
+                item.category == category && item.subCategory == subCategory,
+          )
           .map((item) => item.itemCode ?? '')
           .where((code) => code.isNotEmpty)
           .toList();
@@ -826,7 +992,9 @@ class _PurchaseOrderEntryScreenState extends State<PurchaseOrderEntryScreen> {
         subCategory: subCategory,
         unitPrice: price,
         stockAvailable: quantity,
-        categoryCode: InventoryCodeGenerator.generateCategoryCode(categoryIndex),
+        categoryCode: InventoryCodeGenerator.generateCategoryCode(
+          categoryIndex,
+        ),
         subCategoryCode: InventoryCodeGenerator.generateSubcategoryCode(
           categoryIndex,
           subCategoryIndex,
@@ -859,7 +1027,9 @@ class _PurchaseOrderEntryScreenState extends State<PurchaseOrderEntryScreen> {
     if (!mounted) return;
     Navigator.of(context).pop();
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Saved ${addedItems.length} item(s) to inventory')),
+      SnackBar(
+        content: Text('Saved ${addedItems.length} item(s) to inventory'),
+      ),
     );
   }
 
@@ -869,10 +1039,7 @@ class _PurchaseOrderEntryScreenState extends State<PurchaseOrderEntryScreen> {
       appBar: AppBar(
         title: const Text('Purchase Order'),
         actions: [
-          TextButton(
-            onPressed: _savePurchaseOrder,
-            child: const Text('Save'),
-          ),
+          TextButton(onPressed: _savePurchaseOrder, child: const Text('Save')),
         ],
       ),
       body: SafeArea(
@@ -882,10 +1049,28 @@ class _PurchaseOrderEntryScreenState extends State<PurchaseOrderEntryScreen> {
             children: [
               Align(
                 alignment: Alignment.centerRight,
-                child: TextButton.icon(
-                  onPressed: _addLine,
-                  icon: const Icon(Icons.add_rounded),
-                  label: const Text('Add item'),
+                child: Wrap(
+                  spacing: 8,
+                  children: [
+                    TextButton.icon(
+                      onPressed: () async {
+                        await InventoryScreen._showManageCategoriesDialog(
+                          context,
+                        );
+                        if (!mounted) {
+                          return;
+                        }
+                        setState(() {});
+                      },
+                      icon: const Icon(Icons.category_rounded),
+                      label: const Text('Manage categories'),
+                    ),
+                    TextButton.icon(
+                      onPressed: _addLine,
+                      icon: const Icon(Icons.add_rounded),
+                      label: const Text('Add item'),
+                    ),
+                  ],
                 ),
               ),
               const SizedBox(height: 12),
@@ -898,7 +1083,9 @@ class _PurchaseOrderEntryScreenState extends State<PurchaseOrderEntryScreen> {
                     final categoryOptions = InventoryCatalogManager.categories;
                     final subCategoryOptions = line.category.isEmpty
                         ? <String>[]
-                        : InventoryCatalogManager.subcategoriesFor(line.category);
+                        : InventoryCatalogManager.subcategoriesFor(
+                            line.category,
+                          );
 
                     return Container(
                       padding: const EdgeInsets.all(12),
@@ -914,13 +1101,17 @@ class _PurchaseOrderEntryScreenState extends State<PurchaseOrderEntryScreen> {
                               Expanded(
                                 child: Text(
                                   'Item ${index + 1}',
-                                  style: const TextStyle(fontWeight: FontWeight.w700),
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w700,
+                                  ),
                                 ),
                               ),
                               if (_lines.length > 1)
                                 IconButton(
                                   onPressed: () => _removeLine(index),
-                                  icon: const Icon(Icons.delete_outline_rounded),
+                                  icon: const Icon(
+                                    Icons.delete_outline_rounded,
+                                  ),
                                   color: Colors.red,
                                 ),
                             ],
@@ -939,7 +1130,8 @@ class _PurchaseOrderEntryScreenState extends State<PurchaseOrderEntryScreen> {
                               return widget.viewModel.catalog.where((item) {
                                 final itemName = item.name.toLowerCase();
                                 final category = item.category.toLowerCase();
-                                final itemCode = (item.itemCode ?? '').toLowerCase();
+                                final itemCode = (item.itemCode ?? '')
+                                    .toLowerCase();
                                 return itemName.contains(normalized) ||
                                     category.contains(normalized) ||
                                     itemCode.contains(normalized);
@@ -951,24 +1143,26 @@ class _PurchaseOrderEntryScreenState extends State<PurchaseOrderEntryScreen> {
                                 line.nameController.text = option.name;
                                 line.category = option.category;
                                 line.subCategory = option.subCategory;
-                                line.priceController.text = option.unitPrice.toStringAsFixed(2);
+                                line.priceController.text = option.unitPrice
+                                    .toStringAsFixed(2);
                               });
                             },
-                            fieldViewBuilder: (
-                              BuildContext context,
-                              TextEditingController fieldController,
-                              FocusNode focusNode,
-                              VoidCallback onFieldSubmitted,
-                            ) {
-                              return TextField(
-                                controller: fieldController,
-                                focusNode: focusNode,
-                                decoration: const InputDecoration(
-                                  labelText: 'Item name',
-                                  border: OutlineInputBorder(),
-                                ),
-                              );
-                            },
+                            fieldViewBuilder:
+                                (
+                                  BuildContext context,
+                                  TextEditingController fieldController,
+                                  FocusNode focusNode,
+                                  VoidCallback onFieldSubmitted,
+                                ) {
+                                  return TextField(
+                                    controller: fieldController,
+                                    focusNode: focusNode,
+                                    decoration: const InputDecoration(
+                                      labelText: 'Item name',
+                                      border: OutlineInputBorder(),
+                                    ),
+                                  );
+                                },
                             optionsViewBuilder: (context, onSelected, options) {
                               return Align(
                                 alignment: Alignment.topLeft,
@@ -976,7 +1170,10 @@ class _PurchaseOrderEntryScreenState extends State<PurchaseOrderEntryScreen> {
                                   elevation: 4,
                                   borderRadius: BorderRadius.circular(12),
                                   child: ConstrainedBox(
-                                    constraints: const BoxConstraints(maxHeight: 220, maxWidth: 400),
+                                    constraints: const BoxConstraints(
+                                      maxHeight: 220,
+                                      maxWidth: 400,
+                                    ),
                                     child: ListView.builder(
                                       padding: EdgeInsets.zero,
                                       shrinkWrap: true,
@@ -985,7 +1182,9 @@ class _PurchaseOrderEntryScreenState extends State<PurchaseOrderEntryScreen> {
                                         final option = options.elementAt(index);
                                         return ListTile(
                                           title: Text(option.name),
-                                          subtitle: Text('${option.category} • ${option.subCategory.isEmpty ? 'General' : option.subCategory}'),
+                                          subtitle: Text(
+                                            '${option.category} • ${option.subCategory.isEmpty ? 'General' : option.subCategory}',
+                                          ),
                                           onTap: () => onSelected(option),
                                         );
                                       },
@@ -997,7 +1196,12 @@ class _PurchaseOrderEntryScreenState extends State<PurchaseOrderEntryScreen> {
                           ),
                           const SizedBox(height: 12),
                           DropdownButtonFormField<String>(
-                            initialValue: line.category.isEmpty ? null : line.category,
+                            initialValue:
+                                categoryOptions.contains(line.category)
+                                ? line.category
+                                : (categoryOptions.isNotEmpty
+                                      ? categoryOptions.first
+                                      : null),
                             decoration: const InputDecoration(
                               labelText: 'Category',
                               border: OutlineInputBorder(),
@@ -1014,17 +1218,25 @@ class _PurchaseOrderEntryScreenState extends State<PurchaseOrderEntryScreen> {
                               if (value == null) return;
                               setState(() {
                                 line.category = value;
-                                line.subCategory = InventoryCatalogManager.subcategoriesFor(value).isNotEmpty
-                                    ? InventoryCatalogManager.subcategoriesFor(value).first
+                                line.subCategory =
+                                    InventoryCatalogManager.subcategoriesFor(
+                                      value,
+                                    ).isNotEmpty
+                                    ? InventoryCatalogManager.subcategoriesFor(
+                                        value,
+                                      ).first
                                     : '';
                               });
                             },
                           ),
                           const SizedBox(height: 12),
                           DropdownButtonFormField<String>(
-                            initialValue: subCategoryOptions.contains(line.subCategory)
+                            initialValue:
+                                subCategoryOptions.contains(line.subCategory)
                                 ? line.subCategory
-                                : (subCategoryOptions.isNotEmpty ? subCategoryOptions.first : null),
+                                : (subCategoryOptions.isNotEmpty
+                                      ? subCategoryOptions.first
+                                      : null),
                             decoration: const InputDecoration(
                               labelText: 'Subcategory',
                               border: OutlineInputBorder(),
@@ -1061,7 +1273,10 @@ class _PurchaseOrderEntryScreenState extends State<PurchaseOrderEntryScreen> {
                               Expanded(
                                 child: TextField(
                                   controller: line.priceController,
-                                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                  keyboardType:
+                                      const TextInputType.numberWithOptions(
+                                        decimal: true,
+                                      ),
                                   decoration: const InputDecoration(
                                     labelText: 'Price',
                                     prefixText: '₹ ',
@@ -1169,12 +1384,18 @@ class _SummaryCard extends StatelessWidget {
                 children: [
                   Text(
                     title,
-                    style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600),
+                    style: const TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                   const SizedBox(height: 2),
                   Text(
                     value,
-                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ],
               ),

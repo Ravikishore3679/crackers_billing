@@ -19,9 +19,10 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
   static const String _storageKey = 'expense_entries_v1';
   StreamSubscription<User?>? _authSubscription;
 
-  List<_ExpenseEntry> _entries = _ExpenseScreenState._defaultEntries();
+  List<_ExpenseEntry> _entries = <_ExpenseEntry>[];
 
-  static String _storageKeyForUser(String? uid) => '${_storageKey}_${uid ?? 'anonymous'}';
+  static String _storageKeyForUser(String? uid) =>
+      '${_storageKey}_${uid ?? 'anonymous'}';
 
   String? _currentUserId() {
     if (Firebase.apps.isEmpty) {
@@ -54,7 +55,8 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
     if (Firebase.apps.isNotEmpty) {
       final uid = _currentUserId();
       if (uid != null) {
-        final storedEntries = await FirestoreService.instance.fetchExpenseEntries(userId: uid);
+        final storedEntries = await FirestoreService.instance
+            .fetchExpenseEntries(userId: uid);
         final loadedEntries = storedEntries
             .map((entry) => _ExpenseEntry.fromJson(entry))
             .toList();
@@ -64,12 +66,8 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
         }
 
         setState(() {
-          _entries = loadedEntries.isNotEmpty ? loadedEntries : _defaultEntries();
+          _entries = loadedEntries;
         });
-
-        if (loadedEntries.isEmpty) {
-          await _saveEntries();
-        }
         return;
       }
     }
@@ -78,14 +76,12 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
     final rawEntries = prefs.getString(_storageKeyForUser(_currentUserId()));
 
     if (rawEntries == null || rawEntries.isEmpty) {
-      final defaultEntries = _defaultEntries();
       if (!mounted) {
         return;
       }
       setState(() {
-        _entries = defaultEntries;
+        _entries = <_ExpenseEntry>[];
       });
-      await _saveEntries();
       return;
     }
 
@@ -105,9 +101,8 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
         return;
       }
       setState(() {
-        _entries = _defaultEntries();
+        _entries = <_ExpenseEntry>[];
       });
-      await _saveEntries();
     }
   }
 
@@ -130,37 +125,8 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
     await prefs.setString(_storageKeyForUser(_currentUserId()), payload);
   }
 
-  static List<_ExpenseEntry> _defaultEntries() {
-    final now = DateTime.now();
-    return [
-      _ExpenseEntry(
-        title: 'Raw materials',
-        amount: 1840.00,
-        date: now.subtract(const Duration(days: 2)),
-        icon: Icons.inventory_2_rounded,
-      ),
-      _ExpenseEntry(
-        title: 'Packaging',
-        amount: 620.00,
-        date: now.subtract(const Duration(days: 4)),
-        icon: Icons.local_shipping_rounded,
-      ),
-      _ExpenseEntry(
-        title: 'Transport',
-        amount: 450.00,
-        date: now.subtract(const Duration(days: 6)),
-        icon: Icons.local_shipping_rounded,
-      ),
-      _ExpenseEntry(
-        title: 'Staff wages',
-        amount: 980.00,
-        date: now.subtract(const Duration(days: 7)),
-        icon: Icons.people_rounded,
-      ),
-    ];
-  }
-
-  double get totalExpenditure => _entries.fold(0.0, (sum, entry) => sum + entry.amount);
+  double get totalExpenditure =>
+      _entries.fold(0.0, (sum, entry) => sum + entry.amount);
 
   double get monthExpenditure {
     final now = DateTime.now();
@@ -174,8 +140,11 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
 
   List<MapEntry<String, List<_ExpenseEntry>>> get groupedEntries {
     final grouped = <String, List<_ExpenseEntry>>{};
-    for (final entry in _entries.toList()
-      ..sort((a, b) => (b.date ?? DateTime.now()).compareTo(a.date ?? DateTime.now()))) {
+    for (final entry
+        in _entries.toList()..sort(
+          (a, b) =>
+              (b.date ?? DateTime.now()).compareTo(a.date ?? DateTime.now()),
+        )) {
       final key = _formatDate(entry.date ?? DateTime.now());
       grouped.putIfAbsent(key, () => <_ExpenseEntry>[]).add(entry);
     }
@@ -215,7 +184,9 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
                     const SizedBox(height: 12),
                     TextField(
                       controller: amountController,
-                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
                       decoration: const InputDecoration(
                         labelText: 'Amount',
                         prefixText: '₹ ',
@@ -231,7 +202,9 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
                             context: dialogContext,
                             initialDate: selectedDate,
                             firstDate: DateTime(2020),
-                            lastDate: DateTime.now().add(const Duration(days: 365)),
+                            lastDate: DateTime.now().add(
+                              const Duration(days: 365),
+                            ),
                           );
                           if (picked != null) {
                             setDialogState(() {
@@ -254,7 +227,8 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
                 FilledButton(
                   onPressed: () {
                     final title = titleController.text.trim();
-                    final amount = double.tryParse(amountController.text.trim()) ?? 0.0;
+                    final amount =
+                        double.tryParse(amountController.text.trim()) ?? 0.0;
                     if (title.isEmpty || amount <= 0) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
@@ -297,7 +271,9 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
     if (normalized.contains('pack')) {
       return Icons.inventory_2_rounded;
     }
-    if (normalized.contains('staff') || normalized.contains('salary') || normalized.contains('wage')) {
+    if (normalized.contains('staff') ||
+        normalized.contains('salary') ||
+        normalized.contains('wage')) {
       return Icons.people_rounded;
     }
     return Icons.receipt_long_rounded;
@@ -334,7 +310,9 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
-              Theme.of(context).colorScheme.errorContainer.withValues(alpha: 0.55),
+              Theme.of(
+                context,
+              ).colorScheme.errorContainer.withValues(alpha: 0.55),
               Theme.of(context).colorScheme.surface,
             ],
           ),
@@ -345,163 +323,195 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-              Container(
-                width: double.infinity,
-                padding: EdgeInsets.all(isCompact ? 14 : 20),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.surface,
-                  borderRadius: BorderRadius.circular(22),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.05),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      padding: EdgeInsets.all(isCompact ? 10 : 12),
-                      decoration: BoxDecoration(
-                        color: Colors.red.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: const Icon(Icons.attach_money_rounded, color: Colors.red, size: 28),
-                    ),
-                    const SizedBox(width: 16),
-                    const Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Expense Overview',
-                            style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-                          ),
-                          SizedBox(height: 4),
-                          Text(
-                            'Track operating costs and expenses',
-                            style: TextStyle(color: Colors.grey),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 18),
-              Wrap(
-                spacing: isCompact ? 8 : 12,
-                runSpacing: isCompact ? 8 : 12,
-                children: [
-                  _ExpenseStatCard(
-                    title: 'Total expenditure',
-                    value: '₹${totalExpenditure.toStringAsFixed(2)}',
-                    color: Colors.red,
-                  ),
-                  _ExpenseStatCard(
-                    title: 'This month',
-                    value: '₹${monthExpenditure.toStringAsFixed(2)}',
-                    color: Colors.orange,
-                  ),
-                  _ExpenseStatCard(
-                    title: 'Entries',
-                    value: '${_entries.length}',
-                    color: Colors.blue,
-                  ),
-                ],
-              ),
-              const SizedBox(height: 18),
-              Row(
-                children: [
-                  const Expanded(
-                    child: Text(
-                      'Expenses by date',
-                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                  TextButton.icon(
-                    onPressed: _showAddExpenseDialog,
-                    icon: const Icon(Icons.add_rounded),
-                    label: const Text('Add expense'),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              ...grouped.map((group) {
-                final dateLabel = group.key;
-                final dayTotal = group.value.fold<double>(0.0, (sum, item) => sum + item.amount);
-                return Container(
+                Container(
                   width: double.infinity,
-                  margin: const EdgeInsets.only(bottom: 12),
-                  padding: const EdgeInsets.all(12),
+                  padding: EdgeInsets.all(isCompact ? 14 : 20),
                   decoration: BoxDecoration(
                     color: Theme.of(context).colorScheme.surface,
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(22),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.04),
-                        blurRadius: 8,
-                        offset: const Offset(0, 3),
+                        color: Colors.black.withValues(alpha: 0.05),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
                       ),
                     ],
                   ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  child: Row(
                     children: [
-                      Row(
-                        children: [
-                          Text(
-                            dateLabel,
-                            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
-                          ),
-                          const Spacer(),
-                          Text(
-                            '₹${dayTotal.toStringAsFixed(2)}',
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                          ),
-                        ],
+                      Container(
+                        padding: EdgeInsets.all(isCompact ? 10 : 12),
+                        decoration: BoxDecoration(
+                          color: Colors.red.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: const Icon(
+                          Icons.attach_money_rounded,
+                          color: Colors.red,
+                          size: 28,
+                        ),
                       ),
-                      const SizedBox(height: 10),
-                      ...group.value.map((expense) {
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 8),
-                          child: Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  color: Colors.red.withValues(alpha: 0.12),
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                child: Icon(expense.icon, size: 18, color: Colors.red),
+                      const SizedBox(width: 16),
+                      const Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Expense Overview',
+                              style: TextStyle(
+                                fontSize: 22,
+                                fontWeight: FontWeight.bold,
                               ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Text(
-                                  expense.title,
-                                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
-                                ),
-                              ),
-                              Text(
-                                '₹${expense.amount.toStringAsFixed(2)}',
-                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                              ),
-                              const SizedBox(width: 8),
-                              IconButton(
-                                tooltip: 'Delete expense',
-                                icon: const Icon(Icons.delete_outline_rounded, color: Colors.red),
-                                onPressed: () => _deleteExpense(expense),
-                              ),
-                            ],
-                          ),
-                        );
-                      }),
+                            ),
+                            SizedBox(height: 4),
+                            Text(
+                              'Track operating costs and expenses',
+                              style: TextStyle(color: Colors.grey),
+                            ),
+                          ],
+                        ),
+                      ),
                     ],
                   ),
-                );
-              }),
-            ],
+                ),
+                const SizedBox(height: 18),
+                Wrap(
+                  spacing: isCompact ? 8 : 12,
+                  runSpacing: isCompact ? 8 : 12,
+                  children: [
+                    _ExpenseStatCard(
+                      title: 'Total expenditure',
+                      value: '₹${totalExpenditure.toStringAsFixed(2)}',
+                      color: Colors.red,
+                    ),
+                    _ExpenseStatCard(
+                      title: 'This month',
+                      value: '₹${monthExpenditure.toStringAsFixed(2)}',
+                      color: Colors.orange,
+                    ),
+                    _ExpenseStatCard(
+                      title: 'Entries',
+                      value: '${_entries.length}',
+                      color: Colors.blue,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 18),
+                Row(
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        'Expenses by date',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    TextButton.icon(
+                      onPressed: _showAddExpenseDialog,
+                      icon: const Icon(Icons.add_rounded),
+                      label: const Text('Add expense'),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                ...grouped.map((group) {
+                  final dateLabel = group.key;
+                  final dayTotal = group.value.fold<double>(
+                    0.0,
+                    (sum, item) => sum + item.amount,
+                  );
+                  return Container(
+                    width: double.infinity,
+                    margin: const EdgeInsets.only(bottom: 12),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.surface,
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.04),
+                          blurRadius: 8,
+                          offset: const Offset(0, 3),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Text(
+                              dateLabel,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w700,
+                                fontSize: 15,
+                              ),
+                            ),
+                            const Spacer(),
+                            Text(
+                              '₹${dayTotal.toStringAsFixed(2)}',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        ...group.value.map((expense) {
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: Colors.red.withValues(alpha: 0.12),
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: Icon(
+                                    expense.icon,
+                                    size: 18,
+                                    color: Colors.red,
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Text(
+                                    expense.title,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                ),
+                                Text(
+                                  '₹${expense.amount.toStringAsFixed(2)}',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                IconButton(
+                                  tooltip: 'Delete expense',
+                                  icon: const Icon(
+                                    Icons.delete_outline_rounded,
+                                    color: Colors.red,
+                                  ),
+                                  onPressed: () => _deleteExpense(expense),
+                                ),
+                              ],
+                            ),
+                          );
+                        }),
+                      ],
+                    ),
+                  );
+                }),
+              ],
             ),
           ),
         ),
@@ -534,9 +544,15 @@ class _ExpenseStatCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
+            Text(
+              title,
+              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
+            ),
             const SizedBox(height: 8),
-            Text(value, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+            Text(
+              value,
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            ),
           ],
         ),
       ),

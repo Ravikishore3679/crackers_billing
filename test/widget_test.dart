@@ -87,12 +87,21 @@ void main() {
     await tester.pumpWidget(const MaterialApp(home: ExpenseScreen()));
     await tester.pumpAndSettle();
 
-    expect(find.text('Raw materials'), findsAtLeastNWidgets(1));
+    await tester.tap(find.text('Add expense'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.widgetWithText(TextField, 'Title'), 'Fuel');
+    await tester.enterText(find.widgetWithText(TextField, 'Amount'), '300');
+
+    await tester.tap(find.text('Save expense'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Fuel'), findsAtLeastNWidgets(1));
 
     await tester.tap(find.byTooltip('Delete expense').first);
     await tester.pumpAndSettle();
 
-    expect(find.text('Raw materials'), findsNothing);
+    expect(find.text('Fuel'), findsNothing);
     expect(find.text('Total expenditure'), findsOneWidget);
   });
 

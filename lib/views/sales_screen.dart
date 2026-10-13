@@ -51,6 +51,7 @@ class _CatalogPanel extends StatefulWidget {
 
 class _CatalogPanelState extends State<_CatalogPanel> {
   final TextEditingController _searchController = TextEditingController();
+  final Set<String> _collapsedCategories = <String>{};
 
   void _showAddItemDialog(BuildContext context, SalesViewModel viewModel) {
     final nameController = TextEditingController();
@@ -321,6 +322,14 @@ class _CatalogPanelState extends State<_CatalogPanel> {
                 subCategoryCode.contains(query);
           }).toList();
 
+    final groupedItems = <String, List<CrackerItem>>{};
+    for (final item in filteredItems) {
+      final category = item.category.trim().isEmpty
+          ? 'Uncategorized'
+          : item.category.trim();
+      groupedItems.putIfAbsent(category, () => <CrackerItem>[]).add(item);
+    }
+
     return Container(
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface,
@@ -373,7 +382,10 @@ class _CatalogPanelState extends State<_CatalogPanel> {
                 hintText: 'Search by name, category or code',
                 prefixIcon: const Icon(Icons.search_rounded),
                 border: const OutlineInputBorder(),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
                 suffixIcon: _searchController.text.isEmpty
                     ? null
                     : IconButton(
@@ -400,19 +412,70 @@ class _CatalogPanelState extends State<_CatalogPanel> {
               Expanded(
                 child: SingleChildScrollView(
                   child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      for (final item in filteredItems)
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 8),
-                          child: _ProductCard(
-                            item: item,
-                            viewModel: widget.viewModel,
-                            onAddedToCart: () {
-                              _searchController.clear();
-                              setState(() {});
-                            },
+                      for (final entry in groupedItems.entries) ...[
+                        InkWell(
+                          onTap: () {
+                            setState(() {
+                              if (_collapsedCategories.contains(entry.key)) {
+                                _collapsedCategories.remove(entry.key);
+                              } else {
+                                _collapsedCategories.add(entry.key);
+                              }
+                            });
+                          },
+                          borderRadius: BorderRadius.circular(8),
+                          child: Padding(
+                            padding: const EdgeInsets.only(top: 6, bottom: 8),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  _collapsedCategories.contains(entry.key)
+                                      ? Icons.chevron_right_rounded
+                                      : Icons.expand_more_rounded,
+                                  size: 20,
+                                  color: Theme.of(context).colorScheme.primary,
+                                ),
+                                const SizedBox(width: 4),
+                                Expanded(
+                                  child: Text(
+                                    entry.key,
+                                    style: Theme.of(context).textTheme.titleSmall
+                                        ?.copyWith(
+                                          color: Theme.of(context)
+                                              .colorScheme
+                                              .primary,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                  ),
+                                ),
+                                Text(
+                                  '${entry.value.length}',
+                                  style: Theme.of(context).textTheme.labelMedium
+                                      ?.copyWith(
+                                        color: Colors.grey.shade700,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
+                        if (!_collapsedCategories.contains(entry.key))
+                          for (final item in entry.value)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 8),
+                              child: _ProductCard(
+                                item: item,
+                                viewModel: widget.viewModel,
+                                onAddedToCart: () {
+                                  _searchController.clear();
+                                  setState(() {});
+                                },
+                              ),
+                            ),
+                      ],
                     ],
                   ),
                 ),
