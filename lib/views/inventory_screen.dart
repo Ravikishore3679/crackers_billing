@@ -1,12 +1,113 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:file_picker/file_picker.dart';
 import 'package:provider/provider.dart';
 
 import '../models/cracker_item.dart';
 import '../services/inventory_code_generator.dart';
+import '../services/inventory_spreadsheet_importer.dart';
 import '../view_models/sales_view_model.dart';
+import 'inventory_spreadsheet_import_dialog.dart';
 
 class InventoryScreen extends StatelessWidget {
   const InventoryScreen({super.key});
+
+  Future<void> _downloadTemplate(BuildContext context) async {
+    try {
+      final bytes = InventorySpreadsheetTemplate.createBytes();
+
+      if (!kIsWeb) {
+        await FilePicker.saveFile(
+          fileName: 'inventory_template.xlsx',
+          type: FileType.custom,
+          allowedExtensions: const ['xlsx'],
+          bytes: Uint8List.fromList(bytes),
+        );
+      }
+
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Excel template downloaded.')),
+      );
+    } catch (error) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Could not download template: $error'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  Future<void> _importSpreadsheet(
+    BuildContext context,
+    SalesViewModel viewModel,
+  ) async {
+    try {
+      final result = await FilePicker.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: const ['xlsx'],
+        withData: true,
+      );
+      if (result == null || result.files.isEmpty) return;
+
+      final file = result.files.single;
+      final bytes =
+          file.bytes ??
+          (!kIsWeb && file.path != null
+              ? await file.xFile.readAsBytes()
+              : null);
+      if (bytes == null) {
+        throw const FormatException(
+          'The selected file could not be read. Save it on the device and select it again.',
+        );
+      }
+      final workbook = InventorySpreadsheetWorkbook.fromBytes(bytes);
+      if (!context.mounted) return;
+
+      final importedItems = await showDialog<List<CrackerItem>>(
+        context: context,
+        builder: (_) => InventorySpreadsheetImportDialog(
+          workbook: workbook,
+          existingItems: viewModel.catalog,
+        ),
+      );
+      if (!context.mounted || importedItems == null || importedItems.isEmpty) {
+        return;
+      }
+
+      final importedCategories = <String>{};
+      final importedSubcategories = <String>{};
+      for (final item in importedItems) {
+        if (importedCategories.add(item.category)) {
+          InventoryCatalogManager.addCategory(item.category);
+        }
+        if (item.subCategory.isNotEmpty &&
+            importedSubcategories.add('${item.category}|${item.subCategory}')) {
+          InventoryCatalogManager.addSubcategory(
+            item.category,
+            item.subCategory,
+          );
+        }
+        viewModel.addCatalogItem(item);
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Imported ${importedItems.length} item(s).')),
+      );
+    } catch (error) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Could not import spreadsheet: $error'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -99,6 +200,16 @@ class InventoryScreen extends StatelessWidget {
                             ),
                           ],
                         ),
+                      ),
+                      IconButton(
+                        tooltip: 'Download Excel template',
+                        onPressed: () => _downloadTemplate(context),
+                        icon: const Icon(Icons.download_rounded),
+                      ),
+                      IconButton.filledTonal(
+                        tooltip: 'Import Excel spreadsheet',
+                        onPressed: () => _importSpreadsheet(context, viewModel),
+                        icon: const Icon(Icons.upload_file_rounded),
                       ),
                     ],
                   ),
@@ -325,7 +436,6 @@ class InventoryScreen extends StatelessWidget {
       },
     );
   }
-
 
   static Future<void> _showManageCategoriesDialog(BuildContext context) {
     final categoryController = TextEditingController();
