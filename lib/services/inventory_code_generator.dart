@@ -281,30 +281,6 @@ class InventoryCodeGenerator {
     return letters.substring(0, letters.length > 3 ? 3 : letters.length).toUpperCase();
   }
 
-  static String _variantShortCode(String itemName) {
-    final normalized = itemName.trim().toLowerCase();
-    if (normalized.isEmpty) {
-      return 'GEN';
-    }
-
-    if (normalized.contains('15cm') || normalized.contains('15 cm')) return '15';
-    if (normalized.contains('30cm') || normalized.contains('30 cm')) return '30';
-    if (normalized.contains('45cm') || normalized.contains('45 cm')) return '45';
-    if (normalized.contains('electric')) return 'ELE';
-    if (normalized.contains('crackling')) return 'CRK';
-    if (normalized.contains('ground')) return 'GRD';
-    if (normalized.contains('mini')) return 'MIN';
-    if (normalized.contains('large')) return 'LRG';
-    if (normalized.contains('special')) return 'SPC';
-
-    final letters = normalized.replaceAll(RegExp(r'[^a-z]'), '');
-    if (letters.isEmpty) {
-      return 'GEN';
-    }
-
-    return letters.substring(0, letters.length > 3 ? 3 : letters.length).toUpperCase();
-  }
-
   static int resolveCategoryIndex(String category) {
     final normalized = category.trim().toLowerCase();
     return _categoryCodes[normalized] ?? _stableIndex(normalized, maxValue: 9);

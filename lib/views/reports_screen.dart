@@ -85,44 +85,44 @@ class ReportsScreen extends StatelessWidget {
       ),
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.all(18),
+          padding: const EdgeInsets.all(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Wrap(
-                spacing: 12,
-                runSpacing: 12,
+              Row(
                 children: [
-                  SizedBox(
-                    width: 300,
-                    child: _StatCard(
+                  Expanded(
+                    child: _FolderSummaryCard(
                       title: 'Revenue',
                       value: '₹${viewModel.totalRevenue.toStringAsFixed(2)}',
                       color: Colors.green,
+                      icon: Icons.folder_rounded,
                     ),
                   ),
-                  SizedBox(
-                    width: 300,
-                    child: _StatCard(
-                      title: 'Units Sold',
-                      value: '${viewModel.totalUnitsSold}',
-                      color: Colors.orange,
-                    ),
-                  ),
-                  SizedBox(
-                    width: 300,
-                    child: _StatCard(
-                      title: 'Expenditure',
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _FolderSummaryCard(
+                      title: 'Expense',
                       value: '₹${viewModel.totalExpenditure.toStringAsFixed(2)}',
                       color: Colors.red,
+                      icon: Icons.folder_rounded,
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 10),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Chip(
+                  visualDensity: VisualDensity.compact,
+                  avatar: const Icon(Icons.confirmation_number_rounded, size: 18),
+                  label: Text('Units sold: ${viewModel.totalUnitsSold}'),
+                ),
+              ),
+              const SizedBox(height: 14),
               const Text(
                 'Recent Invoices',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 12),
               Expanded(
@@ -185,37 +185,66 @@ class ReportsScreen extends StatelessWidget {
   }
 }
 
-class _StatCard extends StatelessWidget {
-  const _StatCard({
+class _FolderSummaryCard extends StatelessWidget {
+  const _FolderSummaryCard({
     required this.title,
     required this.value,
     required this.color,
+    required this.icon,
   });
 
   final String title;
   final String value;
   final Color color;
+  final IconData icon;
 
   @override
   Widget build(BuildContext context) {
     return Card(
-      color: color.withValues(alpha: 0.1),
-      child: Padding(
-        padding: const EdgeInsets.all(18),
+      elevation: 0,
+      color: color.withValues(alpha: 0.08),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(18),
+        side: BorderSide(color: color.withValues(alpha: 0.25)),
+      ),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minWidth: 130, maxWidth: 190),
+        child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              title,
-              style: const TextStyle(fontWeight: FontWeight.w600),
+            Row(
+              children: [
+                Container(
+                  width: 28,
+                  height: 28,
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.16),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(icon, color: color, size: 20),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    title,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 11.5,
+                    ),
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 10),
             Text(
               value,
-              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
             ),
           ],
         ),
+      ),
       ),
     );
   }

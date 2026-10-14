@@ -325,10 +325,10 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
               children: [
                 Container(
                   width: double.infinity,
-                  padding: EdgeInsets.all(isCompact ? 14 : 20),
+                  padding: EdgeInsets.all(isCompact ? 12 : 16),
                   decoration: BoxDecoration(
                     color: Theme.of(context).colorScheme.surface,
-                    borderRadius: BorderRadius.circular(22),
+                    borderRadius: BorderRadius.circular(18),
                     boxShadow: [
                       BoxShadow(
                         color: Colors.black.withValues(alpha: 0.05),
@@ -340,15 +340,15 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
                   child: Row(
                     children: [
                       Container(
-                        padding: EdgeInsets.all(isCompact ? 10 : 12),
+                        padding: EdgeInsets.all(isCompact ? 8 : 10),
                         decoration: BoxDecoration(
                           color: Colors.red.withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(16),
+                          borderRadius: BorderRadius.circular(14),
                         ),
                         child: const Icon(
                           Icons.attach_money_rounded,
                           color: Colors.red,
-                          size: 28,
+                          size: 24,
                         ),
                       ),
                       const SizedBox(width: 16),
@@ -359,14 +359,14 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
                             Text(
                               'Expense Overview',
                               style: TextStyle(
-                                fontSize: 22,
+                                fontSize: 18,
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
                             SizedBox(height: 4),
                             Text(
                               'Track operating costs and expenses',
-                              style: TextStyle(color: Colors.grey),
+                              style: TextStyle(color: Colors.grey, fontSize: 11),
                             ),
                           ],
                         ),
@@ -375,26 +375,31 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
                   ),
                 ),
                 const SizedBox(height: 18),
-                Wrap(
-                  spacing: isCompact ? 8 : 12,
-                  runSpacing: isCompact ? 8 : 12,
-                  children: [
-                    _ExpenseStatCard(
-                      title: 'Total expenditure',
-                      value: '₹${totalExpenditure.toStringAsFixed(2)}',
-                      color: Colors.red,
-                    ),
-                    _ExpenseStatCard(
-                      title: 'This month',
-                      value: '₹${monthExpenditure.toStringAsFixed(2)}',
-                      color: Colors.orange,
-                    ),
-                    _ExpenseStatCard(
-                      title: 'Entries',
-                      value: '${_entries.length}',
-                      color: Colors.blue,
-                    ),
-                  ],
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    final cardWidth = (constraints.maxWidth - 12) / 2;
+                    return Row(
+                      children: [
+                        SizedBox(
+                          width: cardWidth,
+                          child: _ExpenseStatCard(
+                            title: 'Total expenditure',
+                            value: '₹${totalExpenditure.toStringAsFixed(2)}',
+                            color: Colors.red,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        SizedBox(
+                          width: cardWidth,
+                          child: _ExpenseStatCard(
+                            title: 'This month',
+                            value: '₹${monthExpenditure.toStringAsFixed(2)}',
+                            color: Colors.orange,
+                          ),
+                        ),
+                      ],
+                    );
+                  },
                 ),
                 const SizedBox(height: 18),
                 Row(
@@ -461,49 +466,73 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
                         ),
                         const SizedBox(height: 10),
                         ...group.value.map((expense) {
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 8),
-                            child: Row(
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.all(8),
-                                  decoration: BoxDecoration(
-                                    color: Colors.red.withValues(alpha: 0.12),
-                                    borderRadius: BorderRadius.circular(10),
+                          return Dismissible(
+                            key: ValueKey('${expense.title}_${expense.amount}_${expense.date?.millisecondsSinceEpoch ?? 0}'),
+                            direction: DismissDirection.endToStart,
+                            background: Container(
+                              margin: const EdgeInsets.only(bottom: 8),
+                              alignment: Alignment.centerRight,
+                              padding: const EdgeInsets.symmetric(horizontal: 16),
+                              decoration: BoxDecoration(
+                                color: Colors.red.withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: const Icon(
+                                Icons.delete_forever_rounded,
+                                color: Colors.red,
+                              ),
+                            ),
+                            onDismissed: (_) => _deleteExpense(expense),
+                            child: Padding(
+                              padding: const EdgeInsets.only(bottom: 8),
+                              child: Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(8),
+                                    decoration: BoxDecoration(
+                                      color: Colors.red.withValues(alpha: 0.12),
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                    child: Icon(
+                                      expense.icon,
+                                      size: 18,
+                                      color: Colors.red,
+                                    ),
                                   ),
-                                  child: Icon(
-                                    expense.icon,
-                                    size: 18,
-                                    color: Colors.red,
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Text(
+                                      expense.title,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 14,
+                                      ),
+                                    ),
                                   ),
-                                ),
-                                const SizedBox(width: 10),
-                                Expanded(
-                                  child: Text(
-                                    expense.title,
+                                  Text(
+                                    '₹${expense.amount.toStringAsFixed(2)}',
                                     style: const TextStyle(
-                                      fontWeight: FontWeight.w600,
+                                      fontWeight: FontWeight.bold,
                                       fontSize: 14,
                                     ),
                                   ),
-                                ),
-                                Text(
-                                  '₹${expense.amount.toStringAsFixed(2)}',
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 14,
+                                  const SizedBox(width: 8),
+                                  TextButton.icon(
+                                    onPressed: () => _deleteExpense(expense),
+                                    icon: const Icon(
+                                      Icons.delete_outline_rounded,
+                                      color: Colors.red,
+                                      size: 18,
+                                    ),
+                                    label: const Text('Remove'),
+                                    style: TextButton.styleFrom(
+                                      foregroundColor: Colors.red,
+                                      visualDensity: VisualDensity.compact,
+                                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                                    ),
                                   ),
-                                ),
-                                const SizedBox(width: 8),
-                                IconButton(
-                                  tooltip: 'Delete expense',
-                                  icon: const Icon(
-                                    Icons.delete_outline_rounded,
-                                    color: Colors.red,
-                                  ),
-                                  onPressed: () => _deleteExpense(expense),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
                           );
                         }),
@@ -534,9 +563,9 @@ class _ExpenseStatCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ConstrainedBox(
-      constraints: const BoxConstraints(minWidth: 140, maxWidth: 200),
+      constraints: const BoxConstraints(minWidth: 130, maxWidth: 190),
       child: Container(
-        padding: const EdgeInsets.all(18),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
         decoration: BoxDecoration(
           color: color.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(18),
@@ -544,14 +573,36 @@ class _ExpenseStatCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              title,
-              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.16),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    Icons.folder_rounded,
+                    color: color,
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    title,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 11.5,
+                    ),
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 2),
             Text(
               value,
-              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
             ),
           ],
         ),
