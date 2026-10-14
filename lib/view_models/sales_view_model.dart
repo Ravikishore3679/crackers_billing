@@ -62,81 +62,6 @@ class SalesViewModel extends ChangeNotifier {
     });
   }
 
-  static List<CrackerItem> get defaultCatalog => [
-    CrackerItem(
-      id: 'seed-sparklers-standard-15cm',
-      name: 'Silver Sparklers 15cm',
-      category: 'Sparklers',
-      subCategory: 'Standard',
-      unitPrice: 18.0,
-      stockAvailable: 50,
-      itemCode: 'SP-STD-001',
-      categoryCode: 'SP',
-      subCategoryCode: 'STD',
-      variantCode: '15',
-    ),
-    CrackerItem(
-      id: 'seed-sparklers-premium-15cm',
-      name: 'Premium Sparklers 15cm',
-      category: 'Sparklers',
-      subCategory: 'Premium',
-      unitPrice: 25.0,
-      stockAvailable: 30,
-      itemCode: 'SP-PRE-001',
-      categoryCode: 'SP',
-      subCategoryCode: 'PRE',
-      variantCode: '15',
-    ),
-    CrackerItem(
-      id: 'seed-rockets-standard-30cm',
-      name: 'Rocket 30cm',
-      category: 'Rockets',
-      subCategory: 'Standard',
-      unitPrice: 35.0,
-      stockAvailable: 20,
-      itemCode: 'RK-STD-001',
-      categoryCode: 'RK',
-      subCategoryCode: 'STD',
-      variantCode: '30',
-    ),
-    CrackerItem(
-      id: 'seed-flower-pots-special',
-      name: 'Flower Pot Special',
-      category: 'Flower Pots',
-      subCategory: 'Special',
-      unitPrice: 40.0,
-      stockAvailable: 15,
-      itemCode: 'FP-SPC-001',
-      categoryCode: 'FP',
-      subCategoryCode: 'SPC',
-      variantCode: 'SPC',
-    ),
-    CrackerItem(
-      id: 'seed-ground-crackers-mini',
-      name: 'Ground Crackers Mini',
-      category: 'Ground Crackers',
-      subCategory: 'Mini',
-      unitPrice: 55.0,
-      stockAvailable: 12,
-      itemCode: 'GC-MIN-001',
-      categoryCode: 'GC',
-      subCategoryCode: 'MIN',
-      variantCode: 'MIN',
-    ),
-    CrackerItem(
-      id: 'seed-specials-electric',
-      name: 'Electric Special',
-      category: 'Specials',
-      subCategory: 'Electric',
-      unitPrice: 65.0,
-      stockAvailable: 10,
-      itemCode: 'SPC-ELE-001',
-      categoryCode: 'SPC',
-      subCategoryCode: 'ELE',
-      variantCode: 'ELE',
-    ),
-  ];
-
   final List<CrackerItem> _catalog;
   final List<InvoiceLineItem> _cart = [];
   final List<HeldCartDraft> _heldCarts = [];
@@ -183,16 +108,28 @@ class SalesViewModel extends ChangeNotifier {
   }
 
   Future<void> _handleAuthStateChanged(User? user) async {
+    final previousUserId = _activeUserId;
     _authEpoch += 1;
     final epoch = _authEpoch;
     final uid = user?.uid;
     _activeUserId = uid;
 
     if (uid == null || uid.isEmpty) {
+      _guestCustomerSequence = 1;
       InventoryCatalogManager.resetToDefaults();
       _clearUserScopedState();
       notifyListeners();
       return;
+    }
+
+    if (uid != previousUserId) {
+      _guestCustomerSequence = 1;
+    }
+
+    try {
+      await FirestoreService.instance.ensureUserCollections(userId: uid);
+    } catch (error) {
+      _errorMessage = 'Unable to initialize user collections: $error';
     }
 
     await InventoryCatalogManager.loadFromFirestore(userId: uid);
@@ -220,6 +157,21 @@ class SalesViewModel extends ChangeNotifier {
     return value;
   }
 
+  int _nextGuestSequenceFromInvoices(List<Invoice> invoices) {
+    var nextSequence = 1;
+    final customerPattern = RegExp(r'^Customer-(\d+)$');
+
+    for (final invoice in invoices) {
+      final match = customerPattern.firstMatch(invoice.customerName.trim());
+      final sequence = int.tryParse(match?.group(1) ?? '');
+      if (sequence != null && sequence >= nextSequence) {
+        nextSequence = sequence + 1;
+      }
+    }
+
+    return nextSequence;
+  }
+
   bool _isStaleRequest({required String userId, int? authEpoch}) {
     final currentAuthUserId = Firebase.apps.isEmpty
         ? null
@@ -239,8 +191,6 @@ class SalesViewModel extends ChangeNotifier {
     }
 
     try {
-      await seedDefaultCatalog(forUserId: uid);
-
       if (_isStaleRequest(userId: uid, authEpoch: authEpoch)) {
         return;
       }
@@ -297,6 +247,11 @@ class SalesViewModel extends ChangeNotifier {
         ..clear()
         ..addAll(invoices);
 
+      final nextGuestSequence = _nextGuestSequenceFromInvoices(invoices);
+      if (nextGuestSequence > _guestCustomerSequence) {
+        _guestCustomerSequence = nextGuestSequence;
+      }
+
       if (reportSummary.isNotEmpty) {
         totalExpenditure =
             (reportSummary['totalExpenditure'] as num?)?.toDouble() ??
@@ -344,40 +299,6 @@ class SalesViewModel extends ChangeNotifier {
     }
 
     notifyListeners();
-  }
-
-  Future<void> seedDefaultCatalog({String? forUserId}) async {
-    final uid = forUserId ?? _currentUserId;
-    if (uid == null || uid.isEmpty || Firebase.apps.isEmpty) {
-      return;
-    }
-
-    final alreadySeeded = await FirestoreService.instance.isInventorySeeded(
-      userId: uid,
-    );
-    if (alreadySeeded) {
-      return;
-    }
-
-    final existingItems = await FirestoreService.instance.fetchInventoryItems(
-      userId: uid,
-    );
-
-    if (existingItems.isNotEmpty) {
-      await FirestoreService.instance.markInventorySeeded(userId: uid);
-      return;
-    }
-
-    final existingIds = existingItems.map((item) => item.id).toSet();
-
-    for (final item in defaultCatalog) {
-      if (existingIds.contains(item.id)) {
-        continue;
-      }
-      await FirestoreService.instance.saveInventoryItem(item, userId: uid);
-    }
-
-    await FirestoreService.instance.markInventorySeeded(userId: uid);
   }
 
   void clearError() {

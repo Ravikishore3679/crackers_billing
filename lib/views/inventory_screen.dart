@@ -665,13 +665,6 @@ class _PurchaseOrderEntryScreenState extends State<PurchaseOrderEntryScreen> {
         continue;
       }
 
-      final categoryIndex = InventoryCodeGenerator.resolveCategoryIndex(
-        category,
-      );
-      final subCategoryIndex = InventoryCodeGenerator.resolveSubCategoryIndex(
-        subCategory,
-      );
-      final variantIndex = InventoryCodeGenerator.resolveVariantIndex(name);
       final categoryKey = '$category|$subCategory';
       final currentBatchCount = batchSequenceCount[categoryKey] ?? 0;
       final nextSequence =
@@ -709,18 +702,6 @@ class _PurchaseOrderEntryScreenState extends State<PurchaseOrderEntryScreen> {
         subCategory: subCategory,
         unitPrice: price,
         stockAvailable: quantity,
-        categoryCode: InventoryCodeGenerator.generateCategoryCode(
-          categoryIndex,
-        ),
-        subCategoryCode: InventoryCodeGenerator.generateSubcategoryCode(
-          categoryIndex,
-          subCategoryIndex,
-        ),
-        variantCode: InventoryCodeGenerator.generateVariantCode(
-          categoryIndex,
-          subCategoryIndex,
-          variantIndex,
-        ),
         itemCode: uniqueCode,
       );
 

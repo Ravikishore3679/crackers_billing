@@ -3,13 +3,11 @@ import 'package:crackers_billing/view_models/sales_view_model.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  group('SalesViewModel default seed catalog', () {
-    test('starts with a predefined catalog instead of an empty list', () {
-      final catalog = SalesViewModel.defaultCatalog;
+  group('SalesViewModel inventory catalog', () {
+    test('starts with an empty catalog', () {
+      final viewModel = SalesViewModel();
 
-      expect(catalog, isNotEmpty);
-      expect(catalog.any((item) => item.name == 'Silver Sparklers 15cm'), isTrue);
-      expect(catalog.any((item) => item.name == 'Rocket 30cm'), isTrue);
+      expect(viewModel.catalog, isEmpty);
     });
 
     test('merges restocks into the existing item instead of creating duplicates', () {

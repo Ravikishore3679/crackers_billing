@@ -7,9 +7,6 @@ class CrackerItem {
     required this.unitPrice,
     required this.stockAvailable,
     this.taxRate = 0.18,
-    this.categoryCode,
-    this.subCategoryCode,
-    this.variantCode,
     this.itemCode,
   })  : assert(unitPrice >= 0, 'unitPrice must be non-negative'),
         assert(stockAvailable >= 0, 'stockAvailable must be non-negative'),
@@ -19,9 +16,6 @@ class CrackerItem {
   final String name;
   final String category;
   final String subCategory;
-  final String? categoryCode;
-  final String? subCategoryCode;
-  final String? variantCode;
   final String? itemCode;
   final double unitPrice;
   final int stockAvailable;
@@ -35,9 +29,6 @@ class CrackerItem {
     double? unitPrice,
     int? stockAvailable,
     double? taxRate,
-    String? categoryCode,
-    String? subCategoryCode,
-    String? variantCode,
     String? itemCode,
   }) {
     return CrackerItem(
@@ -48,9 +39,6 @@ class CrackerItem {
       unitPrice: unitPrice ?? this.unitPrice,
       stockAvailable: stockAvailable ?? this.stockAvailable,
       taxRate: taxRate ?? this.taxRate,
-      categoryCode: categoryCode ?? this.categoryCode,
-      subCategoryCode: subCategoryCode ?? this.subCategoryCode,
-      variantCode: variantCode ?? this.variantCode,
       itemCode: itemCode ?? this.itemCode,
     );
   }
@@ -61,9 +49,6 @@ class CrackerItem {
       'name': name,
       'category': category,
       'subCategory': subCategory,
-      'categoryCode': categoryCode,
-      'subCategoryCode': subCategoryCode,
-      'variantCode': variantCode,
       'itemCode': itemCode,
       'unitPrice': unitPrice,
       'stockAvailable': stockAvailable,
@@ -77,9 +62,6 @@ class CrackerItem {
       name: map['name'] as String,
       category: map['category'] as String,
       subCategory: map['subCategory'] as String? ?? '',
-      categoryCode: map['categoryCode'] as String?,
-      subCategoryCode: map['subCategoryCode'] as String?,
-      variantCode: map['variantCode'] as String?,
       itemCode: map['itemCode'] as String?,
       unitPrice: (map['unitPrice'] as num).toDouble(),
       stockAvailable: map['stockAvailable'] as int,
@@ -98,9 +80,6 @@ class CrackerItem {
         other.name == name &&
         other.category == category &&
         other.subCategory == subCategory &&
-        other.categoryCode == categoryCode &&
-        other.subCategoryCode == subCategoryCode &&
-        other.variantCode == variantCode &&
         other.itemCode == itemCode &&
         other.unitPrice == unitPrice &&
         other.stockAvailable == stockAvailable &&
@@ -114,9 +93,6 @@ class CrackerItem {
       name,
       category,
       subCategory,
-      categoryCode,
-      subCategoryCode,
-      variantCode,
       itemCode,
       unitPrice,
       stockAvailable,

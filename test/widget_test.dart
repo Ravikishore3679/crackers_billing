@@ -230,9 +230,6 @@ void main() {
       unitPrice: 10,
       stockAvailable: 5,
       itemCode: 'SP-STD-001',
-      categoryCode: 'SP',
-      subCategoryCode: 'STD',
-      variantCode: '15',
     );
 
     final secondItem = CrackerItem(
@@ -243,9 +240,6 @@ void main() {
       unitPrice: 12,
       stockAvailable: 6,
       itemCode: 'SP-STD-002',
-      categoryCode: 'SP',
-      subCategoryCode: 'STD',
-      variantCode: '15',
     );
 
     viewModel.addCatalogItem(firstItem);

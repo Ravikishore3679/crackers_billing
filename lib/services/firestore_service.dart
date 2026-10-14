@@ -10,6 +10,7 @@ class FirestoreService {
   FirestoreService._();
 
   static final FirestoreService instance = FirestoreService._();
+  static final Set<String> _initializedCollectionsForSession = <String>{};
 
   static String? resolveUserId({String? userId}) {
     final explicitUserId = userId?.trim();
@@ -52,31 +53,63 @@ class FirestoreService {
   DocumentReference<Map<String, dynamic>> _expenseDocument(String uid) =>
       _userDocument(uid).collection('expenses').doc('entries');
 
-  Future<void> _ensureUserDocument(String uid) async {
-    await _userDocument(uid).set({
+  Future<void> _ensureUserDocument(
+    String uid, {
+    bool refreshCollections = false,
+  }) async {
+    final userDocument = _userDocument(uid);
+    await userDocument.set({
       'uid': uid,
       'lastActiveAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
-  }
 
-  Future<bool> isInventorySeeded({String? userId}) async {
-    if (Firebase.apps.isEmpty) {
-      return false;
+    if (!refreshCollections && _initializedCollectionsForSession.contains(uid)) {
+      return;
     }
 
-    final uid = resolveUserId(userId: userId);
-    if (uid == null || uid.isEmpty) {
-      return false;
-    }
+    final batch = _db.batch();
+    final metadata = {
+      'recordType': 'collection_metadata',
+      'userId': uid,
+    };
+    final metadataDocumentId = '_collection';
 
-    await _ensureUserDocument(uid);
+    batch.set(
+      _salesCollection(uid).doc(metadataDocumentId),
+      metadata,
+      SetOptions(merge: true),
+    );
+    batch.set(
+      _inventoryCollection(uid).doc(metadataDocumentId),
+      metadata,
+      SetOptions(merge: true),
+    );
+    batch.set(
+      _settingsCollection(uid).doc(metadataDocumentId),
+      metadata,
+      SetOptions(merge: true),
+    );
+    batch.set(
+      _reportsDocument(uid).parent.doc(metadataDocumentId),
+      metadata,
+      SetOptions(merge: true),
+    );
+    batch.set(
+      _expenseDocument(uid).parent.doc(metadataDocumentId),
+      metadata,
+      SetOptions(merge: true),
+    );
+    batch.set(
+      userDocument,
+      {'subcollectionsInitialized': true},
+      SetOptions(merge: true),
+    );
 
-    final snapshot = await _userDocument(uid).get();
-    final data = snapshot.data();
-    return data?['inventorySeeded'] == true;
+    await batch.commit();
+    _initializedCollectionsForSession.add(uid);
   }
 
-  Future<void> markInventorySeeded({String? userId}) async {
+  Future<void> ensureUserCollections({String? userId}) async {
     if (Firebase.apps.isEmpty) {
       return;
     }
@@ -86,13 +119,7 @@ class FirestoreService {
       return;
     }
 
-    await _ensureUserDocument(uid);
-
-    await _userDocument(uid).set({
-      'inventorySeeded': true,
-      'inventorySeededAt': FieldValue.serverTimestamp(),
-      'lastActiveAt': FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
+    await _ensureUserDocument(uid, refreshCollections: true);
   }
 
   Future<void> saveExpenseEntries(
@@ -204,9 +231,9 @@ class FirestoreService {
       'name': item.name,
       'category': item.category,
       'subCategory': item.subCategory,
-      'categoryCode': item.categoryCode,
-      'subCategoryCode': item.subCategoryCode,
-      'variantCode': item.variantCode,
+      'categoryCode': FieldValue.delete(),
+      'subCategoryCode': FieldValue.delete(),
+      'variantCode': FieldValue.delete(),
       'itemCode': item.itemCode,
       'unitPrice': item.unitPrice,
       'stockAvailable': item.stockAvailable,
@@ -250,9 +277,6 @@ class FirestoreService {
         name: data['name'] as String? ?? '',
         category: data['category'] as String? ?? '',
         subCategory: data['subCategory'] as String? ?? '',
-        categoryCode: data['categoryCode'] as String?,
-        subCategoryCode: data['subCategoryCode'] as String?,
-        variantCode: data['variantCode'] as String?,
         itemCode: data['itemCode'] as String?,
         unitPrice: (data['unitPrice'] as num?)?.toDouble() ?? 0.0,
         stockAvailable: (data['stockAvailable'] as num?)?.toInt() ?? 0,
