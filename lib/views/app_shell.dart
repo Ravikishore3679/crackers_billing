@@ -19,6 +19,26 @@ class AppShell extends StatefulWidget {
 class _AppShellState extends State<AppShell> {
   int _selectedIndex = 0;
 
+  String _profileInitials(User? user) {
+    final displayName = user?.displayName?.trim() ?? '';
+    if (displayName.isNotEmpty) {
+      final parts = displayName.split(RegExp(r'\s+'));
+      final first = parts.first.isNotEmpty ? parts.first[0] : '';
+      final second = parts.length > 1 && parts[1].isNotEmpty ? parts[1][0] : '';
+      final initials = (first + second).toUpperCase();
+      if (initials.isNotEmpty) {
+        return initials;
+      }
+    }
+
+    final email = user?.email?.trim() ?? '';
+    if (email.isNotEmpty) {
+      return email[0].toUpperCase();
+    }
+
+    return '';
+  }
+
   static const List<NavigationDestination> _destinations = [
     NavigationDestination(
       icon: Icon(Icons.point_of_sale),
@@ -51,10 +71,15 @@ class _AppShellState extends State<AppShell> {
 
   @override
   Widget build(BuildContext context) {
+    final currentUser = FirebaseAuth.instance.currentUser;
+    final initials = _profileInitials(currentUser);
+
     return ChangeNotifierProvider<SalesViewModel>(
       create: (_) {
         final viewModel = SalesViewModel();
-        InventoryCatalogManager.loadFromFirestore();
+        InventoryCatalogManager.loadFromFirestore(
+          userId: FirebaseAuth.instance.currentUser?.uid,
+        );
         return viewModel;
       },
       child: Scaffold(
@@ -63,6 +88,30 @@ class _AppShellState extends State<AppShell> {
           backgroundColor: Theme.of(context).colorScheme.primary,
           foregroundColor: Theme.of(context).colorScheme.onPrimary,
           actions: [
+            Tooltip(
+              message: currentUser?.email ?? 'Signed-in user',
+              child: Padding(
+                padding: const EdgeInsets.only(right: 4),
+                child: CircleAvatar(
+                  radius: 15,
+                  backgroundColor: Theme.of(context).colorScheme.onPrimary,
+                  child: initials.isEmpty
+                      ? Icon(
+                          Icons.person_rounded,
+                          size: 18,
+                          color: Theme.of(context).colorScheme.primary,
+                        )
+                      : Text(
+                          initials,
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.primary,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 12,
+                          ),
+                        ),
+                ),
+              ),
+            ),
             IconButton(
               tooltip: 'Sign out',
               onPressed: () async {

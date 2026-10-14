@@ -32,7 +32,7 @@ class InventorySubCategory {
 class InventoryCatalogManager {
   static const List<String> defaultSubcategories = ['Standard', 'Others'];
 
-  static final Map<String, List<String>> _catalog = {
+  static Map<String, List<String>> _defaultCatalog() => {
     'Sparklers': [...defaultSubcategories],
     'Rockets': [...defaultSubcategories],
     'Flower Pots': [...defaultSubcategories],
@@ -40,12 +40,21 @@ class InventoryCatalogManager {
     'Specials': [...defaultSubcategories],
   };
 
+  static final Map<String, List<String>> _catalog = _defaultCatalog();
+
   static List<String> get categories => _catalog.keys.toList();
 
-  static Future<void> loadFromFirestore() async {
+  static void resetToDefaults() {
+    _catalog
+      ..clear()
+      ..addAll(_defaultCatalog());
+  }
+
+  static Future<void> loadFromFirestore({String? userId}) async {
     try {
+      resetToDefaults();
       final catalog = await FirestoreService.instance.fetchCategoryCatalog(
-        userId: FirebaseAuth.instance.currentUser?.uid,
+        userId: userId ?? FirebaseAuth.instance.currentUser?.uid,
       );
       if (catalog.isNotEmpty) {
         _catalog

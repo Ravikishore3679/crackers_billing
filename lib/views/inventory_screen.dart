@@ -308,8 +308,8 @@ class InventoryScreen extends StatelessWidget {
               child: const Text('Cancel'),
             ),
             FilledButton.icon(
-              onPressed: () {
-                viewModel.removeInventoryItem(item.id);
+              onPressed: () async {
+                await viewModel.removeInventoryItem(item.id);
                 Navigator.of(dialogContext).pop();
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(

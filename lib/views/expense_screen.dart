@@ -4,9 +4,11 @@ import 'dart:convert';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../services/firestore_service.dart';
+import '../view_models/sales_view_model.dart';
 
 class ExpenseScreen extends StatefulWidget {
   const ExpenseScreen({super.key});
@@ -29,6 +31,13 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
       return null;
     }
     return FirebaseAuth.instance.currentUser?.uid;
+  }
+
+  void _syncReportExpenseTotal() {
+    if (!mounted) {
+      return;
+    }
+    context.read<SalesViewModel>().setTotalExpenditure(totalExpenditure);
   }
 
   @override
@@ -68,6 +77,7 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
         setState(() {
           _entries = loadedEntries;
         });
+        _syncReportExpenseTotal();
         return;
       }
     }
@@ -82,6 +92,7 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
       setState(() {
         _entries = <_ExpenseEntry>[];
       });
+      _syncReportExpenseTotal();
       return;
     }
 
@@ -96,6 +107,7 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
       setState(() {
         _entries = loadedEntries;
       });
+      _syncReportExpenseTotal();
     } catch (_) {
       if (!mounted) {
         return;
@@ -103,6 +115,7 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
       setState(() {
         _entries = <_ExpenseEntry>[];
       });
+      _syncReportExpenseTotal();
     }
   }
 
@@ -155,6 +168,7 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
     setState(() {
       _entries.remove(expense);
     });
+    _syncReportExpenseTotal();
     _saveEntries();
   }
 
@@ -250,6 +264,7 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
                         ),
                       );
                     });
+                    _syncReportExpenseTotal();
                     _saveEntries();
                     Navigator.of(dialogContext).pop();
                   },
@@ -366,7 +381,10 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
                             SizedBox(height: 4),
                             Text(
                               'Track operating costs and expenses',
-                              style: TextStyle(color: Colors.grey, fontSize: 11),
+                              style: TextStyle(
+                                color: Colors.grey,
+                                fontSize: 11,
+                              ),
                             ),
                           ],
                         ),
@@ -467,12 +485,16 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
                         const SizedBox(height: 10),
                         ...group.value.map((expense) {
                           return Dismissible(
-                            key: ValueKey('${expense.title}_${expense.amount}_${expense.date?.millisecondsSinceEpoch ?? 0}'),
+                            key: ValueKey(
+                              '${expense.title}_${expense.amount}_${expense.date?.millisecondsSinceEpoch ?? 0}',
+                            ),
                             direction: DismissDirection.endToStart,
                             background: Container(
                               margin: const EdgeInsets.only(bottom: 8),
                               alignment: Alignment.centerRight,
-                              padding: const EdgeInsets.symmetric(horizontal: 16),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                              ),
                               decoration: BoxDecoration(
                                 color: Colors.red.withValues(alpha: 0.12),
                                 borderRadius: BorderRadius.circular(12),
@@ -528,7 +550,9 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
                                     style: TextButton.styleFrom(
                                       foregroundColor: Colors.red,
                                       visualDensity: VisualDensity.compact,
-                                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                      ),
                                     ),
                                   ),
                                 ],
@@ -581,11 +605,7 @@ class _ExpenseStatCard extends StatelessWidget {
                     color: color.withValues(alpha: 0.16),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: Icon(
-                    Icons.folder_rounded,
-                    color: color,
-                    size: 20,
-                  ),
+                  child: Icon(Icons.folder_rounded, color: color, size: 20),
                 ),
                 const SizedBox(width: 10),
                 Expanded(

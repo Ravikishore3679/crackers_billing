@@ -8,28 +8,58 @@ import '../models/cracker_item.dart';
 import '../models/invoice.dart';
 import '../models/invoice_line_item.dart';
 import '../services/firestore_service.dart';
+import '../services/inventory_code_generator.dart';
+
+class HeldCartDraft {
+  HeldCartDraft({
+    required this.id,
+    required this.lineItems,
+    required this.customerName,
+    required this.customerPhone,
+    required this.discountPercent,
+    required this.createdAt,
+  });
+
+  final String id;
+  final List<InvoiceLineItem> lineItems;
+  final String customerName;
+  final String customerPhone;
+  final double discountPercent;
+  final DateTime createdAt;
+
+  int get totalQuantity =>
+      lineItems.fold(0, (total, item) => total + item.quantity);
+
+  double get grossTotal =>
+      lineItems.fold(0.0, (total, item) => total + item.subtotal);
+}
 
 class SalesViewModel extends ChangeNotifier {
   StreamSubscription<User?>? _authSubscription;
+  String? _activeUserId;
+  int _authEpoch = 0;
 
   String? get _currentUserId =>
       Firebase.apps.isEmpty ? null : FirebaseAuth.instance.currentUser?.uid;
 
   SalesViewModel({List<CrackerItem>? catalog})
-    : _catalog = List<CrackerItem>.from(catalog ?? defaultCatalog) {
+    : _catalog = List<CrackerItem>.from(catalog ?? const <CrackerItem>[]) {
     discountController.text = '0.00';
     if (Firebase.apps.isNotEmpty) {
-      _authSubscription = FirebaseAuth.instance.authStateChanges().listen((_) {
+      _activeUserId = FirebaseAuth.instance.currentUser?.uid;
+      _authSubscription = FirebaseAuth.instance.authStateChanges().listen((
+        user,
+      ) {
         Future.microtask(() async {
-          await loadCatalog();
-          await loadInvoiceHistory();
-          await loadExpenseSummary();
+          await _handleAuthStateChanged(user);
         });
       });
     }
-    Future.microtask(loadCatalog);
-    Future.microtask(loadInvoiceHistory);
-    Future.microtask(loadExpenseSummary);
+    Future.microtask(() async {
+      await _handleAuthStateChanged(
+        Firebase.apps.isEmpty ? null : FirebaseAuth.instance.currentUser,
+      );
+    });
   }
 
   static List<CrackerItem> get defaultCatalog => [
@@ -109,11 +139,13 @@ class SalesViewModel extends ChangeNotifier {
 
   final List<CrackerItem> _catalog;
   final List<InvoiceLineItem> _cart = [];
+  final List<HeldCartDraft> _heldCarts = [];
   final List<Invoice> _invoices = [];
   Invoice? _lastGeneratedInvoice;
   String? _errorMessage;
-  double _discountAmount = 0.0;
+  double _discountPercent = 0.0;
   double totalExpenditure = 0.0;
+  int _guestCustomerSequence = 1;
 
   final TextEditingController customerNameController = TextEditingController();
   final TextEditingController customerPhoneController = TextEditingController();
@@ -121,10 +153,12 @@ class SalesViewModel extends ChangeNotifier {
 
   List<CrackerItem> get catalog => List.unmodifiable(_catalog);
   List<InvoiceLineItem> get cart => List.unmodifiable(_cart);
+  List<HeldCartDraft> get heldCarts => List.unmodifiable(_heldCarts);
   List<Invoice> get invoiceHistory => List.unmodifiable(_invoices);
   Invoice? get lastGeneratedInvoice => _lastGeneratedInvoice;
   String? get errorMessage => _errorMessage;
-  double get discountAmount => _discountAmount;
+  double get discountPercent => _discountPercent;
+  double get discountAmount => grossTotal * _discountPercent / 100.0;
   double get totalRevenue =>
       _invoices.fold(0.0, (total, invoice) => total + invoice.netTotal);
   int get totalUnitsSold => _invoices.fold(
@@ -144,55 +178,121 @@ class SalesViewModel extends ChangeNotifier {
       _cart.fold(0.0, (total, lineItem) => total + lineItem.taxAmount);
 
   double get netTotal {
-    final safeDiscount = _discountAmount.clamp(0.0, grossTotal);
+    final safeDiscount = discountAmount.clamp(0.0, grossTotal);
     return grossTotal + taxTotal - safeDiscount;
   }
 
-  Future<void> loadCatalog() async {
-    if (_currentUserId == null) {
-      _errorMessage = null;
+  Future<void> _handleAuthStateChanged(User? user) async {
+    _authEpoch += 1;
+    final epoch = _authEpoch;
+    final uid = user?.uid;
+    _activeUserId = uid;
+
+    if (uid == null || uid.isEmpty) {
+      InventoryCatalogManager.resetToDefaults();
+      _clearUserScopedState();
+      notifyListeners();
+      return;
+    }
+
+    await InventoryCatalogManager.loadFromFirestore(userId: uid);
+
+    await loadCatalog(forUserId: uid, authEpoch: epoch);
+    await loadInvoiceHistory(forUserId: uid, authEpoch: epoch);
+    await loadExpenseSummary(forUserId: uid, authEpoch: epoch);
+  }
+
+  void _clearUserScopedState() {
+    _catalog.clear();
+    _cart.clear();
+    _heldCarts.clear();
+    _invoices.clear();
+    _lastGeneratedInvoice = null;
+    _discountPercent = 0.0;
+    discountController.text = '0.00';
+    totalExpenditure = 0.0;
+    _errorMessage = null;
+  }
+
+  String _nextGuestCustomerName() {
+    final value = 'Customer-${_guestCustomerSequence.toString().padLeft(4, '0')}';
+    _guestCustomerSequence += 1;
+    return value;
+  }
+
+  bool _isStaleRequest({required String userId, int? authEpoch}) {
+    final currentAuthUserId = Firebase.apps.isEmpty
+        ? null
+        : FirebaseAuth.instance.currentUser?.uid;
+    if (authEpoch != null && authEpoch != _authEpoch) {
+      return true;
+    }
+    return userId != _activeUserId || userId != currentAuthUserId;
+  }
+
+  Future<void> loadCatalog({String? forUserId, int? authEpoch}) async {
+    final uid = forUserId ?? _currentUserId;
+    if (uid == null || uid.isEmpty) {
+      _clearUserScopedState();
       notifyListeners();
       return;
     }
 
     try {
+      await seedDefaultCatalog(forUserId: uid);
+
+      if (_isStaleRequest(userId: uid, authEpoch: authEpoch)) {
+        return;
+      }
+
       final items = await FirestoreService.instance.fetchInventoryItems(
-        userId: _currentUserId,
+        userId: uid,
       );
 
-      if (items.isEmpty && _currentUserId != null) {
-        await seedDefaultCatalog();
-        final seededItems = await FirestoreService.instance.fetchInventoryItems(
-          userId: _currentUserId,
-        );
-        _catalog
-          ..clear()
-          ..addAll(seededItems);
-      } else {
-        _catalog
-          ..clear()
-          ..addAll(items);
+      if (_isStaleRequest(userId: uid, authEpoch: authEpoch)) {
+        return;
       }
+
+      _catalog
+        ..clear()
+        ..addAll(items);
       _errorMessage = null;
       notifyListeners();
     } catch (error) {
+      if (_isStaleRequest(userId: uid, authEpoch: authEpoch)) {
+        return;
+      }
       _errorMessage = 'Unable to load inventory: $error';
       notifyListeners();
     }
   }
 
-  Future<void> loadInvoiceHistory() async {
+  Future<void> loadInvoiceHistory({String? forUserId, int? authEpoch}) async {
     if (Firebase.apps.isEmpty) {
+      return;
+    }
+
+    final uid = forUserId ?? _currentUserId;
+    if (uid == null || uid.isEmpty) {
+      _invoices.clear();
+      _lastGeneratedInvoice = null;
+      totalExpenditure = 0.0;
+      notifyListeners();
       return;
     }
 
     try {
       final reportSummary = await FirestoreService.instance.fetchReportSummary(
-        userId: _currentUserId,
+        userId: uid,
       );
       final invoices = await FirestoreService.instance.fetchInvoices(
-        userId: _currentUserId,
+        userId: uid,
       );
+
+      if (_isStaleRequest(userId: uid, authEpoch: authEpoch)) {
+        return;
+      }
+
       _invoices
         ..clear()
         ..addAll(invoices);
@@ -204,13 +304,23 @@ class SalesViewModel extends ChangeNotifier {
       }
       notifyListeners();
     } catch (error) {
+      if (_isStaleRequest(userId: uid, authEpoch: authEpoch)) {
+        return;
+      }
       _errorMessage = 'Unable to load invoice history: $error';
       notifyListeners();
     }
   }
 
-  Future<void> loadExpenseSummary() async {
+  Future<void> loadExpenseSummary({String? forUserId, int? authEpoch}) async {
     if (Firebase.apps.isEmpty) {
+      totalExpenditure = 0.0;
+      notifyListeners();
+      return;
+    }
+
+    final uid = forUserId ?? _currentUserId;
+    if (uid == null || uid.isEmpty) {
       totalExpenditure = 0.0;
       notifyListeners();
       return;
@@ -218,8 +328,13 @@ class SalesViewModel extends ChangeNotifier {
 
     try {
       final entries = await FirestoreService.instance.fetchExpenseEntries(
-        userId: _currentUserId,
+        userId: uid,
       );
+
+      if (_isStaleRequest(userId: uid, authEpoch: authEpoch)) {
+        return;
+      }
+
       totalExpenditure = entries.fold<double>(
         0.0,
         (sum, entry) => sum + (entry['amount'] as num? ?? 0).toDouble(),
@@ -231,20 +346,38 @@ class SalesViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> seedDefaultCatalog() async {
-    if (_currentUserId == null || Firebase.apps.isEmpty) {
+  Future<void> seedDefaultCatalog({String? forUserId}) async {
+    final uid = forUserId ?? _currentUserId;
+    if (uid == null || uid.isEmpty || Firebase.apps.isEmpty) {
       return;
     }
 
-    for (final item in defaultCatalog) {
-      final existing = _catalog.any((candidate) => candidate.id == item.id);
-      if (!existing) {
-        await FirestoreService.instance.saveInventoryItem(
-          item,
-          userId: _currentUserId,
-        );
-      }
+    final alreadySeeded = await FirestoreService.instance.isInventorySeeded(
+      userId: uid,
+    );
+    if (alreadySeeded) {
+      return;
     }
+
+    final existingItems = await FirestoreService.instance.fetchInventoryItems(
+      userId: uid,
+    );
+
+    if (existingItems.isNotEmpty) {
+      await FirestoreService.instance.markInventorySeeded(userId: uid);
+      return;
+    }
+
+    final existingIds = existingItems.map((item) => item.id).toSet();
+
+    for (final item in defaultCatalog) {
+      if (existingIds.contains(item.id)) {
+        continue;
+      }
+      await FirestoreService.instance.saveInventoryItem(item, userId: uid);
+    }
+
+    await FirestoreService.instance.markInventorySeeded(userId: uid);
   }
 
   void clearError() {
@@ -252,6 +385,11 @@ class SalesViewModel extends ChangeNotifier {
       _errorMessage = null;
       notifyListeners();
     }
+  }
+
+  void setTotalExpenditure(double amount) {
+    totalExpenditure = amount;
+    notifyListeners();
   }
 
   InvoiceLineItem? _findCartItem(String itemId) {
@@ -365,7 +503,62 @@ class SalesViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  void removeInventoryItem(String itemId) {
+  void holdCurrentCart() {
+    if (_cart.isEmpty) {
+      return;
+    }
+
+    final customerName = customerNameController.text.trim().isEmpty
+        ? _nextGuestCustomerName()
+        : customerNameController.text.trim();
+
+    final draft = HeldCartDraft(
+      id: 'HOLD-${DateTime.now().millisecondsSinceEpoch}',
+      lineItems: _cart.map((lineItem) => lineItem.copyWith()).toList(),
+      customerName: customerName,
+      customerPhone: customerPhoneController.text.trim(),
+      discountPercent: _discountPercent,
+      createdAt: DateTime.now(),
+    );
+
+    _heldCarts.insert(0, draft);
+    _cart.clear();
+    _discountPercent = 0.0;
+    discountController.text = '0.00';
+    customerNameController.clear();
+    customerPhoneController.clear();
+    _errorMessage = null;
+    notifyListeners();
+  }
+
+  void resumeHeldCart(String draftId) {
+    final index = _heldCarts.indexWhere((draft) => draft.id == draftId);
+    if (index == -1) {
+      return;
+    }
+
+    if (_cart.isNotEmpty) {
+      holdCurrentCart();
+    }
+
+    final draft = _heldCarts.removeAt(index);
+    _cart
+      ..clear()
+      ..addAll(draft.lineItems.map((lineItem) => lineItem.copyWith()));
+    customerNameController.text = draft.customerName;
+    customerPhoneController.text = draft.customerPhone;
+    _discountPercent = draft.discountPercent;
+    discountController.text = draft.discountPercent.toStringAsFixed(2);
+    _errorMessage = null;
+    notifyListeners();
+  }
+
+  void discardHeldCart(String draftId) {
+    _heldCarts.removeWhere((draft) => draft.id == draftId);
+    notifyListeners();
+  }
+
+  Future<void> removeInventoryItem(String itemId) async {
     final index = _catalog.indexWhere((item) => item.id == itemId);
     if (index == -1) {
       return;
@@ -376,13 +569,15 @@ class SalesViewModel extends ChangeNotifier {
     notifyListeners();
 
     if (Firebase.apps.isNotEmpty) {
-      FirestoreService.instance
-          .deleteInventoryItem(itemId, userId: _currentUserId)
-          .catchError((error) {
-            _errorMessage =
-                'Item removed locally but cloud sync failed: $error';
-            notifyListeners();
-          });
+      try {
+        await FirestoreService.instance.deleteInventoryItem(
+          itemId,
+          userId: _currentUserId,
+        );
+      } catch (error) {
+        _errorMessage = 'Item removed locally but cloud sync failed: $error';
+        notifyListeners();
+      }
     }
   }
 
@@ -413,9 +608,8 @@ class SalesViewModel extends ChangeNotifier {
   }
 
   void applyDiscount(double amount) {
-    final safeAmount = amount.clamp(0.0, grossTotal);
-    _discountAmount = safeAmount;
-    discountController.text = safeAmount.toStringAsFixed(2);
+    final safePercent = amount.clamp(0.0, 100.0);
+    _discountPercent = safePercent;
     notifyListeners();
   }
 
@@ -427,16 +621,20 @@ class SalesViewModel extends ChangeNotifier {
       throw StateError(_errorMessage!);
     }
 
-    final safeDiscount = _discountAmount.clamp(0.0, grossTotal);
+    final safeDiscount = discountAmount.clamp(0.0, grossTotal);
+    final customerName = customerNameController.text.trim().isEmpty
+      ? _nextGuestCustomerName()
+        : customerNameController.text.trim();
     final invoice = Invoice(
       id: 'INV-${DateTime.now().millisecondsSinceEpoch}',
-      customerName: customerNameController.text.trim(),
+      customerName: customerName,
       customerPhone: customerPhoneController.text.trim(),
       date: DateTime.now(),
       lineItems: _cart.map((lineItem) => lineItem.copyWith()).toList(),
       discountAmount: safeDiscount,
     );
 
+    final updatedItems = <CrackerItem>[];
     for (final entry in _cart) {
       final index = _catalog.indexWhere(
         (item) => item.id == entry.crackerItem.id,
@@ -444,14 +642,16 @@ class SalesViewModel extends ChangeNotifier {
       if (index != -1) {
         final currentItem = _catalog[index];
         final nextStock = currentItem.stockAvailable - entry.quantity;
-        _catalog[index] = currentItem.copyWith(stockAvailable: nextStock);
+        final updatedItem = currentItem.copyWith(stockAvailable: nextStock);
+        _catalog[index] = updatedItem;
+        updatedItems.add(updatedItem);
       }
     }
 
     _lastGeneratedInvoice = invoice;
     _invoices.insert(0, invoice);
     _cart.clear();
-    _discountAmount = 0.0;
+    _discountPercent = 0.0;
     discountController.text = '0.00';
     customerNameController.clear();
     customerPhoneController.clear();
@@ -463,6 +663,14 @@ class SalesViewModel extends ChangeNotifier {
         invoice,
         userId: _currentUserId,
       );
+
+      for (final item in updatedItems) {
+        await FirestoreService.instance.saveInventoryItem(
+          item,
+          userId: _currentUserId,
+        );
+      }
+
       await FirestoreService.instance.saveReportSummary(
         totalRevenue: _invoices.fold(
           0.0,

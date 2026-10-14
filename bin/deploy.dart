@@ -4,6 +4,10 @@ import 'dart:io';
 
 final RegExp _versionPattern = RegExp(r'^version:\s*(.+)\s*$');
 
+const String _defaultAppId = '1:162682850132:android:4a8c1c35f11684d21c16c1';
+const String _defaultFirebaseGroups = 'crackers2026';
+const String _defaultReleaseNotes = 'arm64 build';
+
 class DeployConfig {
   DeployConfig({
     required this.appId,
@@ -23,7 +27,7 @@ class DeployConfig {
 }
 
 Future<void> main(List<String> arguments) async {
-  final config = _parseArguments(arguments);
+  final config = _parseArguments(arguments, dotenv: _readDotEnvFile());
   final appVersion = _readAppVersion();
 
   stdout.writeln('Deploying version $appVersion');
@@ -33,7 +37,9 @@ Future<void> main(List<String> arguments) async {
     _requireTool('firebase');
   }
 
-  stdout.writeln('Building Android arm64 release APK for version $appVersion...');
+  stdout.writeln(
+    'Building Android arm64 release APK for version $appVersion...',
+  );
   await _run('flutter', [
     'build',
     'apk',
@@ -63,9 +69,13 @@ Future<void> main(List<String> arguments) async {
     config.apkPath,
     '--app',
     config.appId,
-    '--token',
-    config.firebaseToken,
   ];
+
+  if (config.firebaseToken.isNotEmpty) {
+    firebaseArgs
+      ..add('--token')
+      ..add(config.firebaseToken);
+  }
 
   if (config.groups.isNotEmpty) {
     firebaseArgs
@@ -89,10 +99,15 @@ String _readAppVersion() {
     return 'unknown';
   }
 
-  final match = _versionPattern.firstMatch(pubspecFile.readAsStringSync().split('\n').firstWhere(
-        (line) => line.trimLeft().startsWith('version:'),
-        orElse: () => '',
-      ));
+  final match = _versionPattern.firstMatch(
+    pubspecFile
+        .readAsStringSync()
+        .split('\n')
+        .firstWhere(
+          (line) => line.trimLeft().startsWith('version:'),
+          orElse: () => '',
+        ),
+  );
   if (match == null) {
     return 'unknown';
   }
@@ -100,7 +115,10 @@ String _readAppVersion() {
   return match.group(1)!.trim();
 }
 
-DeployConfig _parseArguments(List<String> arguments) {
+DeployConfig _parseArguments(
+  List<String> arguments, {
+  required Map<String, String> dotenv,
+}) {
   final values = <String, String>{};
   var buildOnly = false;
 
@@ -133,25 +151,31 @@ DeployConfig _parseArguments(List<String> arguments) {
   }
 
   final appId =
-      values['app-id'] ?? Platform.environment['FIREBASE_APP_ID'] ?? '';
+      values['app-id'] ??
+      Platform.environment['FIREBASE_APP_ID'] ??
+      dotenv['FIREBASE_APP_ID'] ??
+      _defaultAppId;
   final firebaseToken =
-      values['firebase-token'] ?? Platform.environment['FIREBASE_TOKEN'] ?? '';
+      values['firebase-token'] ??
+      values['token'] ??
+      Platform.environment['FIREBASE_TOKEN'] ??
+      dotenv['FIREBASE_TOKEN'] ??
+      '';
   final groups =
-      values['groups'] ?? Platform.environment['FIREBASE_GROUPS'] ?? 'testers';
+      values['groups'] ??
+      values['testers'] ??
+      Platform.environment['FIREBASE_GROUPS'] ??
+      dotenv['FIREBASE_GROUPS'] ??
+      _defaultFirebaseGroups;
   final releaseNotes =
       values['release-notes'] ??
       Platform.environment['RELEASE_NOTES'] ??
-      'Android arm64 release from bin/deploy.dart';
+      dotenv['RELEASE_NOTES'] ??
+      _defaultReleaseNotes;
 
   if (appId.isEmpty && !buildOnly) {
     throw ArgumentError(
       'Missing Firebase app id. Pass --app-id or set FIREBASE_APP_ID.',
-    );
-  }
-
-  if (firebaseToken.isEmpty && !buildOnly) {
-    throw ArgumentError(
-      'Missing Firebase token. Pass --firebase-token or set FIREBASE_TOKEN.',
     );
   }
 
@@ -165,6 +189,36 @@ DeployConfig _parseArguments(List<String> arguments) {
     groups: groups,
     buildOnly: buildOnly,
   );
+}
+
+Map<String, String> _readDotEnvFile() {
+  final file = File('.env');
+  if (!file.existsSync()) {
+    return const <String, String>{};
+  }
+
+  final data = <String, String>{};
+  for (final line in file.readAsLinesSync()) {
+    final trimmed = line.trim();
+    if (trimmed.isEmpty || trimmed.startsWith('#')) {
+      continue;
+    }
+
+    final index = trimmed.indexOf('=');
+    if (index <= 0) {
+      continue;
+    }
+
+    final key = trimmed.substring(0, index).trim();
+    var value = trimmed.substring(index + 1).trim();
+    if ((value.startsWith('"') && value.endsWith('"')) ||
+        (value.startsWith("'") && value.endsWith("'"))) {
+      value = value.substring(1, value.length - 1);
+    }
+    data[key] = value;
+  }
+
+  return data;
 }
 
 void _requireTool(String tool) {
