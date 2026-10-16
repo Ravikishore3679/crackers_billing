@@ -36,6 +36,7 @@ class HeldCartDraft {
 
 class SalesViewModel extends ChangeNotifier {
   StreamSubscription<User?>? _authSubscription;
+  final List<StreamSubscription<void>> _liveSubscriptions = [];
   String? _activeUserId;
   int _authEpoch = 0;
 
@@ -113,6 +114,7 @@ class SalesViewModel extends ChangeNotifier {
     final epoch = _authEpoch;
     final uid = user?.uid;
     _activeUserId = uid;
+    _cancelLiveSubscriptions();
 
     if (uid == null || uid.isEmpty) {
       _guestCustomerSequence = 1;
@@ -137,6 +139,29 @@ class SalesViewModel extends ChangeNotifier {
     await loadCatalog(forUserId: uid, authEpoch: epoch);
     await loadInvoiceHistory(forUserId: uid, authEpoch: epoch);
     await loadExpenseSummary(forUserId: uid, authEpoch: epoch);
+
+    if (_isStaleRequest(userId: uid, authEpoch: epoch)) {
+      return;
+    }
+    final firestore = FirestoreService.instance;
+    _liveSubscriptions.addAll([
+      firestore
+          .watchWorkspace('inventory', userId: uid)
+          .listen((_) => loadCatalog(forUserId: uid, authEpoch: epoch)),
+      firestore
+          .watchWorkspace('sales', userId: uid)
+          .listen((_) => loadInvoiceHistory(forUserId: uid, authEpoch: epoch)),
+      firestore
+          .watchWorkspace('expenses', userId: uid)
+          .listen((_) => loadExpenseSummary(forUserId: uid, authEpoch: epoch)),
+    ]);
+  }
+
+  void _cancelLiveSubscriptions() {
+    for (final subscription in _liveSubscriptions) {
+      subscription.cancel();
+    }
+    _liveSubscriptions.clear();
   }
 
   void _clearUserScopedState() {
@@ -152,7 +177,8 @@ class SalesViewModel extends ChangeNotifier {
   }
 
   String _nextGuestCustomerName() {
-    final value = 'Customer-${_guestCustomerSequence.toString().padLeft(4, '0')}';
+    final value =
+        'Customer-${_guestCustomerSequence.toString().padLeft(4, '0')}';
     _guestCustomerSequence += 1;
     return value;
   }
@@ -336,6 +362,10 @@ class SalesViewModel extends ChangeNotifier {
   }
 
   void addCatalogItem(CrackerItem item) {
+    if (!FirestoreService.instance.canManageInventory) {
+      throw StateError('Only the workspace owner can manage inventory.');
+    }
+
     if (item.name.trim().isEmpty) {
       throw StateError('Item name cannot be empty.');
     }
@@ -480,6 +510,10 @@ class SalesViewModel extends ChangeNotifier {
   }
 
   Future<void> removeInventoryItem(String itemId) async {
+    if (!FirestoreService.instance.canManageInventory) {
+      throw StateError('Only the workspace owner can manage inventory.');
+    }
+
     final index = _catalog.indexWhere((item) => item.id == itemId);
     if (index == -1) {
       return;
@@ -544,7 +578,7 @@ class SalesViewModel extends ChangeNotifier {
 
     final safeDiscount = discountAmount.clamp(0.0, grossTotal);
     final customerName = customerNameController.text.trim().isEmpty
-      ? _nextGuestCustomerName()
+        ? _nextGuestCustomerName()
         : customerNameController.text.trim();
     final invoice = Invoice(
       id: 'INV-${DateTime.now().millisecondsSinceEpoch}',
@@ -620,6 +654,7 @@ class SalesViewModel extends ChangeNotifier {
   @override
   void dispose() {
     _authSubscription?.cancel();
+    _cancelLiveSubscriptions();
     customerNameController.dispose();
     customerPhoneController.dispose();
     discountController.dispose();

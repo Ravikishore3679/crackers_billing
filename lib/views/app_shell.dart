@@ -1,13 +1,16 @@
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../services/firestore_service.dart';
 import '../services/inventory_code_generator.dart';
 import '../view_models/sales_view_model.dart';
 import 'expense_screen.dart';
 import 'inventory_screen.dart';
 import 'reports_screen.dart';
 import 'sales_screen.dart';
+import 'staff_access_screen.dart';
 
 class AppShell extends StatefulWidget {
   const AppShell({super.key});
@@ -71,15 +74,31 @@ class _AppShellState extends State<AppShell> {
 
   @override
   Widget build(BuildContext context) {
-    final currentUser = FirebaseAuth.instance.currentUser;
+    final currentUser = Firebase.apps.isEmpty
+      ? null
+      : FirebaseAuth.instance.currentUser;
     final initials = _profileInitials(currentUser);
+    final isOwner = FirestoreService.instance.isWorkspaceOwner;
+    final screens = isOwner
+        ? _screens
+        : <Widget>[_screens[0], _screens[2], _screens[3]];
+    final destinations = isOwner
+        ? _destinations
+        : <NavigationDestination>[
+            _destinations[0],
+            _destinations[2],
+            _destinations[3],
+          ];
+    final selectedIndex = _selectedIndex.clamp(0, screens.length - 1);
 
     return ChangeNotifierProvider<SalesViewModel>(
       create: (_) {
         final viewModel = SalesViewModel();
-        InventoryCatalogManager.loadFromFirestore(
-          userId: FirebaseAuth.instance.currentUser?.uid,
-        );
+        if (Firebase.apps.isNotEmpty) {
+          InventoryCatalogManager.loadFromFirestore(
+            userId: FirebaseAuth.instance.currentUser?.uid,
+          );
+        }
         return viewModel;
       },
       child: Scaffold(
@@ -88,6 +107,16 @@ class _AppShellState extends State<AppShell> {
           backgroundColor: Theme.of(context).colorScheme.primary,
           foregroundColor: Theme.of(context).colorScheme.onPrimary,
           actions: [
+            if (isOwner)
+              IconButton(
+                tooltip: 'Manage staff access',
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const StaffAccessScreen(),
+                  ),
+                ),
+                icon: const Icon(Icons.group_add_rounded),
+              ),
             Tooltip(
               message: currentUser?.email ?? 'Signed-in user',
               child: Padding(
@@ -115,24 +144,22 @@ class _AppShellState extends State<AppShell> {
             IconButton(
               tooltip: 'Sign out',
               onPressed: () async {
+                FirestoreService.clearWorkspaceSession();
                 await FirebaseAuth.instance.signOut();
               },
               icon: const Icon(Icons.logout_rounded),
             ),
           ],
         ),
-        body: IndexedStack(
-          index: _selectedIndex,
-          children: _screens,
-        ),
+        body: IndexedStack(index: selectedIndex, children: screens),
         bottomNavigationBar: NavigationBar(
-          selectedIndex: _selectedIndex,
+          selectedIndex: selectedIndex,
           onDestinationSelected: (index) {
             setState(() {
               _selectedIndex = index;
             });
           },
-          destinations: _destinations,
+          destinations: destinations,
         ),
       ),
     );

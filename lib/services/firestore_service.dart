@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -11,10 +13,201 @@ class FirestoreService {
 
   static final FirestoreService instance = FirestoreService._();
   static final Set<String> _initializedCollectionsForSession = <String>{};
+  static final Map<String, Future<void>> _workspacePreparations = {};
+  static String? _activeUserId;
+  static String? _activeWorkspaceId;
+  static String? _activeRole;
+
+  bool get isWorkspaceOwner => Firebase.apps.isEmpty || _activeRole == 'owner';
+  bool get canManageInventory => isWorkspaceOwner;
+  bool get canManageStaff => isWorkspaceOwner;
+
+  static void clearWorkspaceSession() {
+    final userId = _activeUserId;
+    if (userId != null) {
+      _workspacePreparations.remove(userId);
+    }
+    _activeUserId = null;
+    _activeWorkspaceId = null;
+    _activeRole = null;
+  }
+
+  static String _inviteDocumentId(String email) => base64Url
+      .encode(utf8.encode(email.trim().toLowerCase()))
+      .replaceAll('=', '');
+
+  Future<void> prepareWorkspace(User user) {
+    final cached = _workspacePreparations[user.uid];
+    if (cached != null) {
+      return cached;
+    }
+
+    final future = _prepareWorkspace(user).catchError((error) {
+      _workspacePreparations.remove(user.uid);
+      throw error;
+    });
+    _workspacePreparations[user.uid] = future;
+    return future;
+  }
+
+  Future<void> _prepareWorkspace(User user) async {
+    final userDocument = _userDocument(user.uid);
+    final userSnapshot = await _workspaceStep(
+      'Reading the signed-in user profile',
+      userDocument.get,
+    );
+    final existingWorkspace =
+        userSnapshot.data()?['workspaceOwnerUid'] as String?;
+
+    if (existingWorkspace != null && existingWorkspace.isNotEmpty) {
+      final membership = await _workspaceStep(
+        'Reading the workspace membership',
+        _userDocument(existingWorkspace).collection('members').doc(user.uid).get,
+      );
+      if (membership.exists) {
+        _activeUserId = user.uid;
+        _activeWorkspaceId = existingWorkspace;
+        _activeRole = membership.data()?['role'] as String? ?? 'billing';
+        return;
+      }
+    }
+
+    final email = user.email?.trim().toLowerCase();
+    if (email != null && email.isNotEmpty) {
+      final inviteReference = _db
+          .collection('accessInvites')
+          .doc(_inviteDocumentId(email));
+      DocumentSnapshot<Map<String, dynamic>>? inviteSnapshot;
+      try {
+        inviteSnapshot = await inviteReference.get();
+      } on FirebaseException catch (error) {
+        if (error.code != 'permission-denied') {
+          rethrow;
+        }
+      }
+      final invite = inviteSnapshot?.data();
+      final ownerUid = invite?['ownerUid'] as String?;
+      if (inviteSnapshot?.exists == true &&
+          ownerUid != null &&
+          ownerUid != user.uid) {
+        final memberReference = _userDocument(
+          ownerUid,
+        ).collection('members').doc(user.uid);
+        await _workspaceStep(
+          'Accepting the staff invitation',
+          () => _db.runTransaction((transaction) async {
+            transaction.set(memberReference, {
+              'uid': user.uid,
+              'email': email,
+              'role': 'billing',
+              'inviteId': _inviteDocumentId(email),
+              'joinedAt': FieldValue.serverTimestamp(),
+            });
+            transaction.set(userDocument, {
+              'uid': user.uid,
+              'workspaceOwnerUid': ownerUid,
+              'workspaceInviteId': _inviteDocumentId(email),
+              'role': 'billing',
+            }, SetOptions(merge: true));
+            transaction.delete(inviteReference);
+          }),
+        );
+        _activeUserId = user.uid;
+        _activeWorkspaceId = ownerUid;
+        _activeRole = 'billing';
+        return;
+      }
+    }
+
+    await _workspaceStep(
+      'Creating the owner workspace profile',
+      () => userDocument.set({
+        'uid': user.uid,
+        'role': 'owner',
+        'workspaceOwnerUid': FieldValue.delete(),
+        'workspaceInviteId': FieldValue.delete(),
+        'lastActiveAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true)),
+    );
+    _activeUserId = user.uid;
+    _activeWorkspaceId = user.uid;
+    _activeRole = 'owner';
+  }
+
+  Future<T> _workspaceStep<T>(
+    String label,
+    Future<T> Function() operation,
+  ) async {
+    try {
+      return await operation();
+    } on FirebaseException catch (error) {
+      throw StateError('$label failed (${error.code}): ${error.message}');
+    }
+  }
+
+  Future<void> inviteBillingStaff(String email) async {
+    final normalizedEmail = email.trim().toLowerCase();
+    final ownerUid = resolveUserId();
+    if (!isWorkspaceOwner || ownerUid == null || normalizedEmail.isEmpty) {
+      throw StateError('Only the workspace owner can invite staff.');
+    }
+
+    await _db
+        .collection('accessInvites')
+        .doc(_inviteDocumentId(normalizedEmail))
+        .set({
+          'ownerUid': ownerUid,
+          'email': normalizedEmail,
+          'role': 'billing',
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+  }
+
+  Future<bool> hasPendingBillingInvite(String email) async {
+    final normalizedEmail = email.trim().toLowerCase();
+    if (normalizedEmail.isEmpty || Firebase.apps.isEmpty) {
+      return false;
+    }
+
+    try {
+      final snapshot = await _db
+          .collection('accessInvites')
+          .doc(_inviteDocumentId(normalizedEmail))
+          .get();
+      return snapshot.exists && snapshot.data()?['email'] == normalizedEmail;
+    } on FirebaseException catch (error) {
+      if (error.code == 'permission-denied') {
+        return false;
+      }
+      rethrow;
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> fetchWorkspaceMembers() async {
+    final ownerUid = resolveUserId();
+    if (!isWorkspaceOwner || ownerUid == null) {
+      return const [];
+    }
+
+    final snapshot = await _userDocument(ownerUid).collection('members').get();
+    return snapshot.docs.map((document) => document.data()).toList();
+  }
+
+  Future<void> revokeWorkspaceMember(String memberUid) async {
+    final ownerUid = resolveUserId();
+    if (!isWorkspaceOwner || ownerUid == null) {
+      throw StateError('Only the workspace owner can revoke staff access.');
+    }
+
+    await _userDocument(ownerUid).collection('members').doc(memberUid).delete();
+  }
 
   static String? resolveUserId({String? userId}) {
     final explicitUserId = userId?.trim();
     if (explicitUserId != null && explicitUserId.isNotEmpty) {
+      if (explicitUserId == _activeUserId && _activeWorkspaceId != null) {
+        return _activeWorkspaceId;
+      }
       return explicitUserId;
     }
 
@@ -24,13 +217,36 @@ class FirestoreService {
 
     final currentUserId = FirebaseAuth.instance.currentUser?.uid.trim();
     if (currentUserId != null && currentUserId.isNotEmpty) {
+      if (currentUserId == _activeUserId && _activeWorkspaceId != null) {
+        return _activeWorkspaceId;
+      }
       return currentUserId;
     }
 
     return null;
   }
 
-  final FirebaseFirestore _db = FirebaseFirestore.instance;
+  FirebaseFirestore get _db => FirebaseFirestore.instance;
+
+  /// Emits when another device changes a workspace collection; skips the initial snapshot and local writes.
+  Stream<void> watchWorkspace(String collection, {String? userId}) {
+    if (Firebase.apps.isEmpty) {
+      return const Stream.empty();
+    }
+
+    final uid = resolveUserId(userId: userId);
+    if (uid == null || uid.isEmpty) {
+      return const Stream.empty();
+    }
+
+    return _userDocument(uid)
+        .collection(collection)
+        .snapshots()
+        .handleError((_) {})
+        .skip(1)
+        .where((snapshot) => !snapshot.metadata.hasPendingWrites)
+        .map((_) {});
+  }
 
   CollectionReference<Map<String, dynamic>> get _usersCollection =>
       _db.collection('users');
@@ -57,21 +273,23 @@ class FirestoreService {
     String uid, {
     bool refreshCollections = false,
   }) async {
+    if (_activeRole != 'owner' && uid == _activeWorkspaceId) {
+      return;
+    }
+
     final userDocument = _userDocument(uid);
     await userDocument.set({
       'uid': uid,
       'lastActiveAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
 
-    if (!refreshCollections && _initializedCollectionsForSession.contains(uid)) {
+    if (!refreshCollections &&
+        _initializedCollectionsForSession.contains(uid)) {
       return;
     }
 
     final batch = _db.batch();
-    final metadata = {
-      'recordType': 'collection_metadata',
-      'userId': uid,
-    };
+    final metadata = {'recordType': 'collection_metadata', 'userId': uid};
     final metadataDocumentId = '_collection';
 
     batch.set(
@@ -99,11 +317,9 @@ class FirestoreService {
       metadata,
       SetOptions(merge: true),
     );
-    batch.set(
-      userDocument,
-      {'subcollectionsInitialized': true},
-      SetOptions(merge: true),
-    );
+    batch.set(userDocument, {
+      'subcollectionsInitialized': true,
+    }, SetOptions(merge: true));
 
     await batch.commit();
     _initializedCollectionsForSession.add(uid);
@@ -116,6 +332,10 @@ class FirestoreService {
 
     final uid = resolveUserId(userId: userId);
     if (uid == null || uid.isEmpty) {
+      return;
+    }
+
+    if (!isWorkspaceOwner) {
       return;
     }
 

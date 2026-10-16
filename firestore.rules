@@ -1,0 +1,93 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(ownerUid) {
+      return signedIn() && request.auth.uid == ownerUid;
+    }
+
+    function isBillingStaff(ownerUid) {
+      return signedIn()
+        && exists(/databases/$(database)/documents/users/$(ownerUid)/members/$(request.auth.uid))
+        && get(/databases/$(database)/documents/users/$(ownerUid)/members/$(request.auth.uid)).data.role == 'billing';
+    }
+
+    function canReadWorkspace(ownerUid) {
+      return isOwner(ownerUid) || isBillingStaff(ownerUid);
+    }
+
+    function validInvite(inviteId, ownerUid) {
+      return signedIn()
+        && exists(/databases/$(database)/documents/accessInvites/$(inviteId))
+        && get(/databases/$(database)/documents/accessInvites/$(inviteId)).data.ownerUid == ownerUid
+        && get(/databases/$(database)/documents/accessInvites/$(inviteId)).data.email == request.auth.token.email.lower()
+        && get(/databases/$(database)/documents/accessInvites/$(inviteId)).data.role == 'billing';
+    }
+
+    match /accessInvites/{inviteId} {
+      allow get: if signedIn()
+        && (resource.data.ownerUid == request.auth.uid
+          || resource.data.email == request.auth.token.email.lower());
+      allow list: if false;
+      allow create, update: if signedIn()
+        && request.resource.data.ownerUid == request.auth.uid
+        && request.resource.data.email is string
+        && request.resource.data.role == 'billing';
+      allow delete: if signedIn()
+        && (resource.data.ownerUid == request.auth.uid
+          || resource.data.email == request.auth.token.email.lower());
+    }
+
+    match /users/{userUid} {
+      allow read: if signedIn() && request.auth.uid == userUid;
+      allow create: if signedIn() && request.auth.uid == userUid;
+      allow update: if isOwner(userUid)
+        || (signedIn()
+          && request.auth.uid == userUid
+          && request.resource.data.workspaceOwnerUid is string
+          && request.resource.data.workspaceInviteId is string
+          && request.resource.data.role == 'billing'
+          && validInvite(
+            request.resource.data.workspaceInviteId,
+            request.resource.data.workspaceOwnerUid
+          ));
+      allow delete: if isOwner(userUid);
+
+      match /members/{memberUid} {
+        allow get: if isOwner(userUid)
+          || (signedIn() && request.auth.uid == memberUid);
+        allow list: if isOwner(userUid);
+        allow create: if isOwner(userUid)
+          || (signedIn()
+            && request.auth.uid == memberUid
+            && request.resource.data.uid == memberUid
+            && request.resource.data.role == 'billing'
+            && request.resource.data.email == request.auth.token.email.lower()
+            && validInvite(request.resource.data.inviteId, userUid));
+        allow update, delete: if isOwner(userUid);
+      }
+
+      match /{collection}/{document=**} {
+        function isWorkspaceCollection() {
+          return collection in ['sales', 'inventory', 'app_settings', 'reports', 'expenses'];
+        }
+
+        allow read: if isWorkspaceCollection() && canReadWorkspace(userUid);
+        allow create: if isWorkspaceCollection()
+          && (isOwner(userUid)
+            || (isBillingStaff(userUid)
+              && collection in ['sales', 'reports', 'expenses']));
+        allow update: if isWorkspaceCollection()
+          && (isOwner(userUid)
+            || (isBillingStaff(userUid)
+              && collection in ['reports', 'expenses']));
+        allow delete: if isWorkspaceCollection()
+          && (isOwner(userUid)
+            || (isBillingStaff(userUid) && collection == 'expenses'));
+      }
+    }
+  }
+}

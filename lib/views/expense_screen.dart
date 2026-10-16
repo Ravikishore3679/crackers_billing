@@ -20,6 +20,7 @@ class ExpenseScreen extends StatefulWidget {
 class _ExpenseScreenState extends State<ExpenseScreen> {
   static const String _storageKey = 'expense_entries_v1';
   StreamSubscription<User?>? _authSubscription;
+  StreamSubscription<void>? _liveSubscription;
 
   List<_ExpenseEntry> _entries = <_ExpenseEntry>[];
 
@@ -50,6 +51,9 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
         }
         _loadEntries();
       });
+      _liveSubscription = FirestoreService.instance
+          .watchWorkspace('expenses')
+          .listen((_) => _loadEntries());
     }
     _loadEntries();
   }
@@ -57,6 +61,7 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
   @override
   void dispose() {
     _authSubscription?.cancel();
+    _liveSubscription?.cancel();
     super.dispose();
   }
 

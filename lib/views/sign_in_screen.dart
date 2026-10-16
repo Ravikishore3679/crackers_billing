@@ -63,10 +63,7 @@ class _SignInScreenState extends State<SignInScreen> {
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(error.toString()),
-          backgroundColor: Colors.red,
-        ),
+        SnackBar(content: Text(error.toString()), backgroundColor: Colors.red),
       );
     } finally {
       if (mounted) {
@@ -228,7 +225,9 @@ class _SignInScreenState extends State<SignInScreen> {
                             prefixIcon: const Icon(Icons.lock_outline_rounded),
                             suffixIcon: IconButton(
                               onPressed: () {
-                                setState(() => _obscurePassword = !_obscurePassword);
+                                setState(
+                                  () => _obscurePassword = !_obscurePassword,
+                                );
                               },
                               icon: Icon(
                                 _obscurePassword
@@ -240,19 +239,25 @@ class _SignInScreenState extends State<SignInScreen> {
                         ),
                         const SizedBox(height: 24),
                         FilledButton.icon(
-                          onPressed: _isLoading ? null : () => _submit(createAccount: false),
+                          onPressed: _isLoading
+                              ? null
+                              : () => _submit(createAccount: false),
                           icon: _isLoading
                               ? const SizedBox(
                                   width: 16,
                                   height: 16,
-                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
                                 )
                               : const Icon(Icons.login_rounded),
                           label: const Text('Sign In'),
                         ),
                         const SizedBox(height: 12),
                         OutlinedButton.icon(
-                          onPressed: _isLoading ? null : () => _submit(createAccount: true),
+                          onPressed: _isLoading
+                              ? null
+                              : () => _submit(createAccount: true),
                           icon: const Icon(Icons.person_add_alt_1_rounded),
                           label: const Text('Create Account'),
                         ),
