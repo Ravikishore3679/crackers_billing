@@ -5,6 +5,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 
 import 'firebase_options.dart';
 import 'views/auth_gate.dart';
+import 'theme/app_theme.dart';
 
 const String googleWebClientId =
     '162682850132-pb5alb13lnmcvhagkfeu7t1l5mtoaocv.apps.googleusercontent.com';
@@ -52,10 +53,7 @@ class CrackersBillingApp extends StatelessWidget {
     return MaterialApp(
       title: 'Crackers Sales & Invoices',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.orange),
-        useMaterial3: true,
-      ),
+      theme: AppTheme.light(),
       home: const AuthGate(),
     );
   }

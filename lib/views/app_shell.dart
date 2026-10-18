@@ -106,6 +106,15 @@ class _AppShellState extends State<AppShell> {
           title: const Text('Crackers Sales & Invoices'),
           backgroundColor: Theme.of(context).colorScheme.primary,
           foregroundColor: Theme.of(context).colorScheme.onPrimary,
+          flexibleSpace: Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Color(0xFFBF360C), Color(0xFFF57C00)],
+                begin: Alignment.centerLeft,
+                end: Alignment.centerRight,
+              ),
+            ),
+          ),
           actions: [
             if (isOwner)
               IconButton(

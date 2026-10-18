@@ -39,7 +39,7 @@ class Invoice {
       '---',
       ...lineItems.map(
         (item) =>
-            '${item.crackerItem.name} x ${item.quantity} = ₹${item.subtotal.toStringAsFixed(2)}',
+            '${item.crackerItem.nameWithSubCategory} x ${item.quantity} = ₹${item.subtotal.toStringAsFixed(2)}',
       ),
       '---',
       'Gross Total: ₹${grossTotal.toStringAsFixed(2)}',

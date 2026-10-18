@@ -4,25 +4,19 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import 'package:provider/provider.dart';
-import 'package:share_plus/share_plus.dart';
 
 import '../models/invoice.dart';
+import '../services/pdf_theme.dart';
+import 'invoice_receipt_card.dart';
 import '../view_models/sales_view_model.dart';
 
 class InvoiceEntryScreen extends StatelessWidget {
   const InvoiceEntryScreen({super.key});
 
-  Future<void> _shareInvoice(BuildContext context, Invoice invoice) async {
-    await SharePlus.instance.share(
-      ShareParams(
-        text: invoice.invoiceSummaryText,
-        subject: 'Crackers Invoice ${invoice.id}',
-      ),
-    );
-  }
+  static final GlobalKey _billKey = GlobalKey();
 
   Future<Uint8List> _buildInvoicePdfBytes(Invoice invoice) async {
-    final pdf = pw.Document();
+    final pdf = pw.Document(theme: await loadPdfTheme());
     pdf.addPage(
       pw.Page(
         pageFormat: PdfPageFormat.a4,
@@ -45,7 +39,9 @@ class InvoiceEntryScreen extends StatelessWidget {
               pw.Text(
                 'Phone: ${invoice.customerPhone.isEmpty ? 'Not provided' : invoice.customerPhone}',
               ),
-              pw.Text('Date: ${invoice.date.day}/${invoice.date.month}/${invoice.date.year}'),
+              pw.Text(
+                'Date: ${invoice.date.day}/${invoice.date.month}/${invoice.date.year}',
+              ),
               pw.Divider(),
               ...invoice.lineItems.map(
                 (item) => pw.Padding(
@@ -53,7 +49,9 @@ class InvoiceEntryScreen extends StatelessWidget {
                   child: pw.Row(
                     mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                     children: [
-                      pw.Text('${item.crackerItem.name} x ${item.quantity}'),
+                      pw.Text(
+                        '${item.crackerItem.nameWithSubCategory} x ${item.quantity}',
+                      ),
                       pw.Text('₹${item.subtotal.toStringAsFixed(2)}'),
                     ],
                   ),
@@ -62,7 +60,9 @@ class InvoiceEntryScreen extends StatelessWidget {
               pw.Divider(),
               pw.Text('Gross Total: ₹${invoice.grossTotal.toStringAsFixed(2)}'),
               pw.Text('GST: ₹${invoice.taxTotal.toStringAsFixed(2)}'),
-              pw.Text('Discount: ₹${invoice.discountAmount.toStringAsFixed(2)}'),
+              pw.Text(
+                'Discount: ₹${invoice.discountAmount.toStringAsFixed(2)}',
+              ),
               pw.Text(
                 'Net Payable: ₹${invoice.netTotal.toStringAsFixed(2)}',
                 style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
@@ -102,9 +102,7 @@ class InvoiceEntryScreen extends StatelessWidget {
     final lastInvoice = viewModel.lastGeneratedInvoice;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Invoice Entry'),
-      ),
+      appBar: AppBar(title: const Text('Invoice Entry')),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(20),
@@ -136,7 +134,10 @@ class InvoiceEntryScreen extends StatelessWidget {
                     children: [
                       const Text(
                         'Current Cart Summary',
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                       const SizedBox(height: 12),
                       if (viewModel.cart.isEmpty)
@@ -149,7 +150,7 @@ class InvoiceEntryScreen extends StatelessWidget {
                               children: [
                                 Expanded(
                                   child: Text(
-                                    item.crackerItem.name,
+                                    item.crackerItem.nameWithSubCategory,
                                     softWrap: true,
                                   ),
                                 ),
@@ -240,9 +241,9 @@ class InvoiceEntryScreen extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(height: 12),
-                        Text(
-                          lastInvoice.invoiceSummaryText,
-                          softWrap: true,
+                        InvoiceReceiptCard(
+                          invoice: lastInvoice,
+                          boundaryKey: _billKey,
                         ),
                         const SizedBox(height: 16),
                         Wrap(
@@ -252,9 +253,13 @@ class InvoiceEntryScreen extends StatelessWidget {
                             SizedBox(
                               width: 140,
                               child: OutlinedButton.icon(
-                                onPressed: () => _shareInvoice(context, lastInvoice),
-                                icon: const Icon(Icons.share_rounded),
-                                label: const Text('Share'),
+                                onPressed: () => shareInvoiceImage(
+                                  context,
+                                  _billKey,
+                                  lastInvoice,
+                                ),
+                                icon: const Icon(Icons.image_rounded),
+                                label: const Text('Share Image'),
                               ),
                             ),
                             SizedBox(

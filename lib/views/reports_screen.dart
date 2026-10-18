@@ -7,13 +7,14 @@ import 'package:printing/printing.dart';
 import 'package:provider/provider.dart';
 
 import '../models/invoice.dart';
+import '../services/pdf_theme.dart';
 import '../view_models/sales_view_model.dart';
 
 class ReportsScreen extends StatelessWidget {
   const ReportsScreen({super.key});
 
   Future<Uint8List> _buildInvoicePdfBytes(Invoice invoice) async {
-    final pdf = pw.Document();
+    final pdf = pw.Document(theme: await loadPdfTheme());
     pdf.addPage(
       pw.Page(
         pageFormat: PdfPageFormat.a4,
@@ -23,7 +24,10 @@ class ReportsScreen extends StatelessWidget {
             children: [
               pw.Text(
                 'CRACKERS SALES & INVOICES',
-                style: pw.TextStyle(fontSize: 20, fontWeight: pw.FontWeight.bold),
+                style: pw.TextStyle(
+                  fontSize: 20,
+                  fontWeight: pw.FontWeight.bold,
+                ),
               ),
               pw.SizedBox(height: 12),
               pw.Text('Invoice: ${invoice.id}'),
@@ -33,7 +37,9 @@ class ReportsScreen extends StatelessWidget {
               pw.Text(
                 'Phone: ${invoice.customerPhone.isEmpty ? 'Not provided' : invoice.customerPhone}',
               ),
-              pw.Text('Date: ${invoice.date.day}/${invoice.date.month}/${invoice.date.year}'),
+              pw.Text(
+                'Date: ${invoice.date.day}/${invoice.date.month}/${invoice.date.year}',
+              ),
               pw.Divider(),
               ...invoice.lineItems.map(
                 (item) => pw.Padding(
@@ -41,7 +47,9 @@ class ReportsScreen extends StatelessWidget {
                   child: pw.Row(
                     mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                     children: [
-                      pw.Text('${item.crackerItem.name} x ${item.quantity}'),
+                      pw.Text(
+                        '${item.crackerItem.nameWithSubCategory} x ${item.quantity}',
+                      ),
                       pw.Text('₹${item.subtotal.toStringAsFixed(2)}'),
                     ],
                   ),
@@ -50,7 +58,9 @@ class ReportsScreen extends StatelessWidget {
               pw.Divider(),
               pw.Text('Gross Total: ₹${invoice.grossTotal.toStringAsFixed(2)}'),
               pw.Text('GST: ₹${invoice.taxTotal.toStringAsFixed(2)}'),
-              pw.Text('Discount: ₹${invoice.discountAmount.toStringAsFixed(2)}'),
+              pw.Text(
+                'Discount: ₹${invoice.discountAmount.toStringAsFixed(2)}',
+              ),
               pw.Text(
                 'Net Payable: ₹${invoice.netTotal.toStringAsFixed(2)}',
                 style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
@@ -80,9 +90,7 @@ class ReportsScreen extends StatelessWidget {
     final viewModel = context.watch<SalesViewModel>();
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Sales Reports'),
-      ),
+      appBar: AppBar(title: const Text('Sales Reports')),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(16),
@@ -103,7 +111,8 @@ class ReportsScreen extends StatelessWidget {
                   Expanded(
                     child: _FolderSummaryCard(
                       title: 'Expense',
-                      value: '₹${viewModel.totalExpenditure.toStringAsFixed(2)}',
+                      value:
+                          '₹${viewModel.totalExpenditure.toStringAsFixed(2)}',
                       color: Colors.red,
                       icon: Icons.folder_rounded,
                     ),
@@ -115,7 +124,10 @@ class ReportsScreen extends StatelessWidget {
                 alignment: Alignment.centerLeft,
                 child: Chip(
                   visualDensity: VisualDensity.compact,
-                  avatar: const Icon(Icons.confirmation_number_rounded, size: 18),
+                  avatar: const Icon(
+                    Icons.confirmation_number_rounded,
+                    size: 18,
+                  ),
                   label: Text('Units sold: ${viewModel.totalUnitsSold}'),
                 ),
               ),
@@ -130,7 +142,9 @@ class ReportsScreen extends StatelessWidget {
                     ? const Card(
                         child: Padding(
                           padding: EdgeInsets.all(20),
-                          child: Text('No invoices yet. Generate one from the sales screen.'),
+                          child: Text(
+                            'No invoices yet. Generate one from the sales screen.',
+                          ),
                         ),
                       )
                     : ListView.builder(
@@ -141,8 +155,12 @@ class ReportsScreen extends StatelessWidget {
                             margin: const EdgeInsets.only(bottom: 12),
                             child: ListTile(
                               title: Text(
-                                invoice.customerName.isEmpty ? 'Walk-in Customer' : invoice.customerName,
-                                style: const TextStyle(fontWeight: FontWeight.w600),
+                                invoice.customerName.isEmpty
+                                    ? 'Walk-in Customer'
+                                    : invoice.customerName,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
                               subtitle: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -162,7 +180,9 @@ class ReportsScreen extends StatelessWidget {
                                 children: [
                                   Text(
                                     '₹${invoice.netTotal.toStringAsFixed(2)}',
-                                    style: const TextStyle(fontWeight: FontWeight.bold),
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                    ),
                                   ),
                                   const SizedBox(width: 8),
                                   IconButton(
@@ -210,41 +230,44 @@ class _FolderSummaryCard extends StatelessWidget {
       child: ConstrainedBox(
         constraints: const BoxConstraints(minWidth: 130, maxWidth: 190),
         child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  width: 28,
-                  height: 28,
-                  decoration: BoxDecoration(
-                    color: color.withValues(alpha: 0.16),
-                    borderRadius: BorderRadius.circular(12),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 28,
+                    height: 28,
+                    decoration: BoxDecoration(
+                      color: color.withValues(alpha: 0.16),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(icon, color: color, size: 20),
                   ),
-                  child: Icon(icon, color: color, size: 20),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    title,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w600,
-                      fontSize: 11.5,
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      title,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 11.5,
+                      ),
                     ),
                   ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Text(
+                value,
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.bold,
                 ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            Text(
-              value,
-              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
-            ),
-          ],
+              ),
+            ],
+          ),
         ),
-      ),
       ),
     );
   }

@@ -108,6 +108,10 @@ class SalesViewModel extends ChangeNotifier {
     return grossTotal + taxTotal - safeDiscount;
   }
 
+  double get roundedNetTotal => (netTotal / 10).round() * 10.0;
+
+  double get roundOffAmount => roundedNetTotal - netTotal;
+
   Future<void> _handleAuthStateChanged(User? user) async {
     final previousUserId = _activeUserId;
     _authEpoch += 1;

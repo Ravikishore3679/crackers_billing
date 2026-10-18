@@ -4,11 +4,12 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import 'package:provider/provider.dart';
-import 'package:share_plus/share_plus.dart';
 
 import '../models/cracker_item.dart';
 import '../models/invoice.dart';
+import '../services/pdf_theme.dart';
 import '../view_models/sales_view_model.dart';
+import 'invoice_receipt_card.dart';
 
 class SalesScreen extends StatelessWidget {
   const SalesScreen({super.key});
@@ -353,8 +354,16 @@ class _ProductCard extends StatelessWidget {
 
     return Card(
       margin: EdgeInsets.zero,
-      elevation: 1,
-      child: Padding(
+      clipBehavior: Clip.antiAlias,
+      child: Container(
+        decoration: BoxDecoration(
+          border: Border(
+            left: BorderSide(
+              color: canAdd ? Colors.orange.shade700 : Colors.grey.shade400,
+              width: 4,
+            ),
+          ),
+        ),
         padding: const EdgeInsets.all(10),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -439,49 +448,95 @@ class _ProductCard extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 8),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: InkWell(
-                    onTap: canAdd
-                        ? () {
-                            try {
-                              viewModel.addToCart(item);
-                              onAddedToCart?.call();
-                            } catch (error) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(error.toString()),
-                                  backgroundColor: Colors.red,
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (canAdd)
+                      for (final n in const [2, 5])
+                        Padding(
+                          padding: const EdgeInsets.only(right: 6),
+                          child: InkWell(
+                            onTap: () {
+                              try {
+                                viewModel.updateQuantity(
+                                  item.id,
+                                  cartQuantity + n,
+                                );
+                                onAddedToCart?.call();
+                              } catch (error) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(error.toString()),
+                                    backgroundColor: Colors.red,
+                                  ),
+                                );
+                              }
+                            },
+                            borderRadius: BorderRadius.circular(999),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 6,
+                              ),
+                              decoration: BoxDecoration(
+                                border: Border.all(
+                                  color: Theme.of(context).colorScheme.primary,
                                 ),
-                              );
+                                borderRadius: BorderRadius.circular(999),
+                              ),
+                              child: Text(
+                                '+$n',
+                                style: TextStyle(
+                                  color: Theme.of(context).colorScheme.primary,
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 11,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                    InkWell(
+                      onTap: canAdd
+                          ? () {
+                              try {
+                                viewModel.addToCart(item);
+                                onAddedToCart?.call();
+                              } catch (error) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(error.toString()),
+                                    backgroundColor: Colors.red,
+                                  ),
+                                );
+                              }
                             }
-                          }
-                        : null,
-                    borderRadius: BorderRadius.circular(999),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: canAdd
-                            ? Theme.of(context).colorScheme.primary
-                            : Colors.grey.shade300,
-                        borderRadius: BorderRadius.circular(999),
-                      ),
-                      child: Text(
-                        'ADD',
-                        style: TextStyle(
+                          : null,
+                      borderRadius: BorderRadius.circular(999),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
                           color: canAdd
-                              ? Theme.of(context).colorScheme.onPrimary
-                              : Colors.grey.shade600,
-                          fontWeight: FontWeight.w700,
-                          fontSize: 11,
-                          letterSpacing: 0.6,
+                              ? Theme.of(context).colorScheme.primary
+                              : Colors.grey.shade300,
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: Text(
+                          'ADD',
+                          style: TextStyle(
+                            color: canAdd
+                                ? Theme.of(context).colorScheme.onPrimary
+                                : Colors.grey.shade600,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 11,
+                            letterSpacing: 0.6,
+                          ),
                         ),
                       ),
                     ),
-                  ),
+                  ],
                 ),
                 if (cartQuantity > 0) ...[
                   const SizedBox(height: 8),
@@ -493,7 +548,10 @@ class _ProductCard extends StatelessWidget {
                         InkWell(
                           onTap: () {
                             try {
-                              viewModel.updateQuantity(item.id, cartQuantity - 1);
+                              viewModel.updateQuantity(
+                                item.id,
+                                cartQuantity - 1,
+                              );
                             } catch (error) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
@@ -522,15 +580,16 @@ class _ProductCard extends StatelessWidget {
                           padding: const EdgeInsets.symmetric(horizontal: 6),
                           child: Text(
                             '$cartQuantity',
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w600,
-                            ),
+                            style: const TextStyle(fontWeight: FontWeight.w600),
                           ),
                         ),
                         InkWell(
                           onTap: () {
                             try {
-                              viewModel.updateQuantity(item.id, cartQuantity + 1);
+                              viewModel.updateQuantity(
+                                item.id,
+                                cartQuantity + 1,
+                              );
                             } catch (error) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
@@ -573,17 +632,10 @@ class _CartPanel extends StatelessWidget {
 
   final SalesViewModel viewModel;
 
-  Future<void> _shareInvoice(BuildContext context, Invoice invoice) async {
-    await SharePlus.instance.share(
-      ShareParams(
-        text: invoice.invoiceSummaryText,
-        subject: 'Crackers Invoice ${invoice.id}',
-      ),
-    );
-  }
+  static final GlobalKey _billKey = GlobalKey();
 
   Future<Uint8List> _buildInvoicePdfBytes(Invoice invoice) async {
-    final pdf = pw.Document();
+    final pdf = pw.Document(theme: await loadPdfTheme());
     pdf.addPage(
       pw.Page(
         pageFormat: PdfPageFormat.a4,
@@ -616,7 +668,9 @@ class _CartPanel extends StatelessWidget {
                   child: pw.Row(
                     mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                     children: [
-                      pw.Text('${item.crackerItem.name} x ${item.quantity}'),
+                      pw.Text(
+                        '${item.crackerItem.nameWithSubCategory} x ${item.quantity}',
+                      ),
                       pw.Text('₹${item.subtotal.toStringAsFixed(2)}'),
                     ],
                   ),
@@ -844,7 +898,7 @@ class _CartPanel extends StatelessWidget {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      line.crackerItem.name,
+                                      line.crackerItem.nameWithSubCategory,
                                       style: const TextStyle(
                                         fontWeight: FontWeight.w600,
                                       ),
@@ -991,8 +1045,9 @@ class _CartPanel extends StatelessWidget {
                           width: 120,
                           child: TextFormField(
                             key: ValueKey(viewModel.cart.length),
-                            initialValue: viewModel.discountPercent
-                                .toStringAsFixed(2),
+                            initialValue: viewModel.discountPercent == 0
+                                ? ''
+                                : viewModel.discountPercent.toString(),
                             keyboardType: const TextInputType.numberWithOptions(
                               decimal: true,
                             ),
@@ -1000,6 +1055,7 @@ class _CartPanel extends StatelessWidget {
                             decoration: const InputDecoration(
                               isDense: true,
                               border: OutlineInputBorder(),
+                              hintText: '0',
                               suffixText: '%',
                             ),
                             onChanged: (value) {
@@ -1013,14 +1069,6 @@ class _CartPanel extends StatelessWidget {
                           ),
                         ),
                       ],
-                    ),
-                    const SizedBox(height: 8),
-                    Slider(
-                      value: viewModel.discountPercent,
-                      max: 100.0,
-                      onChanged: (value) {
-                        viewModel.applyDiscount(value);
-                      },
                     ),
                     const SizedBox(height: 8),
                     _SummaryRow(label: 'Gross', value: viewModel.grossTotal),
@@ -1039,6 +1087,22 @@ class _CartPanel extends StatelessWidget {
                     _SummaryRow(
                       label: 'Net Payable',
                       value: viewModel.netTotal,
+                      isTotal: true,
+                    ),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('Round Off (to ₹10)'),
+                        Text(
+                          '${viewModel.roundOffAmount >= 0 ? '+' : '-'}₹${viewModel.roundOffAmount.abs().toStringAsFixed(2)}',
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    _SummaryRow(
+                      label: 'Rounded Payable',
+                      value: viewModel.roundedNetTotal,
                       isTotal: true,
                     ),
                     const SizedBox(height: 16),
@@ -1091,9 +1155,9 @@ class _CartPanel extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: 10),
-                      Text(
-                        viewModel.lastGeneratedInvoice!.invoiceSummaryText,
-                        softWrap: true,
+                      InvoiceReceiptCard(
+                        invoice: viewModel.lastGeneratedInvoice!,
+                        boundaryKey: _billKey,
                       ),
                       const SizedBox(height: 12),
                       Wrap(
@@ -1103,12 +1167,13 @@ class _CartPanel extends StatelessWidget {
                           SizedBox(
                             width: 140,
                             child: OutlinedButton.icon(
-                              onPressed: () => _shareInvoice(
+                              onPressed: () => shareInvoiceImage(
                                 context,
+                                _billKey,
                                 viewModel.lastGeneratedInvoice!,
                               ),
-                              icon: const Icon(Icons.share_rounded),
-                              label: const Text('Share'),
+                              icon: const Icon(Icons.image_rounded),
+                              label: const Text('Share Image'),
                             ),
                           ),
                           SizedBox(

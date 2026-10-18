@@ -21,6 +21,9 @@ class CrackerItem {
   final int stockAvailable;
   final double taxRate;
 
+  String get nameWithSubCategory =>
+      subCategory.trim().isEmpty ? name : '$subCategory - $name';
+
   CrackerItem copyWith({
     String? id,
     String? name,
