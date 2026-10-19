@@ -32,7 +32,6 @@ class InvoiceReceiptCard extends StatelessWidget {
     final customer = invoice.customerName.trim().isNotEmpty
         ? invoice.customerName
         : 'Walk-in Customer';
-    final date = invoice.date;
     final roundedNet = (invoice.netTotal / 10).round() * 10.0;
     final roundOff = roundedNet - invoice.netTotal;
 
@@ -110,7 +109,7 @@ class InvoiceReceiptCard extends StatelessWidget {
                         style: const TextStyle(fontWeight: FontWeight.w700),
                       ),
                       Text(
-                        '${date.day}/${date.month}/${date.year}',
+                        invoice.formattedDateTime,
                         style: const TextStyle(color: _muted),
                       ),
                     ],

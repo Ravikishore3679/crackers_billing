@@ -343,6 +343,31 @@ class _ProductCard extends StatelessWidget {
   final SalesViewModel viewModel;
   final VoidCallback? onAddedToCart;
 
+  void _showAddedToast(BuildContext context, int quantity) {
+    final messenger = ScaffoldMessenger.of(context);
+    messenger
+      ..clearSnackBars()
+      ..showSnackBar(
+        SnackBar(
+          duration: const Duration(milliseconds: 1200),
+          backgroundColor: Colors.green.shade700,
+          content: Row(
+            children: [
+              const Icon(Icons.check_circle_rounded, color: Colors.white),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  '$quantity × ${item.nameWithSubCategory} added to cart',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+  }
+
   @override
   Widget build(BuildContext context) {
     final canAdd = item.stockAvailable > 0;
@@ -460,6 +485,7 @@ class _ProductCard extends StatelessWidget {
                                   item.id,
                                   cartQuantity + n,
                                 );
+                                _showAddedToast(context, n);
                                 onAddedToCart?.call();
                               } catch (error) {
                                 ScaffoldMessenger.of(context).showSnackBar(
@@ -498,6 +524,7 @@ class _ProductCard extends StatelessWidget {
                           ? () {
                               try {
                                 viewModel.addToCart(item);
+                                _showAddedToast(context, 1);
                                 onAddedToCart?.call();
                               } catch (error) {
                                 ScaffoldMessenger.of(context).showSnackBar(

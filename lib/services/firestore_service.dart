@@ -591,6 +591,26 @@ class FirestoreService {
     }, SetOptions(merge: true));
   }
 
+  Future<void> saveInvoicePayment(Invoice invoice, {String? userId}) async {
+    if (Firebase.apps.isEmpty) {
+      return;
+    }
+
+    final uid = resolveUserId(userId: userId);
+    if (uid == null || uid.isEmpty) {
+      return;
+    }
+
+    await _salesCollection(uid).doc(invoice.id).set({
+      'cashPaid': invoice.cashPaid,
+      'upiPaid': invoice.upiPaid,
+      'cardPaid': invoice.cardPaid,
+      'paidAt': invoice.paidAt == null
+          ? null
+          : Timestamp.fromDate(invoice.paidAt!),
+    }, SetOptions(merge: true));
+  }
+
   Stream<List<Invoice>> invoicesStream({String? userId}) {
     if (Firebase.apps.isEmpty) {
       return const Stream.empty();
@@ -618,6 +638,10 @@ class FirestoreService {
           date: (data['date'] as Timestamp).toDate(),
           lineItems: lineItems,
           discountAmount: (data['discountAmount'] as num?)?.toDouble() ?? 0.0,
+          cashPaid: (data['cashPaid'] as num?)?.toDouble() ?? 0.0,
+          upiPaid: (data['upiPaid'] as num?)?.toDouble() ?? 0.0,
+          cardPaid: (data['cardPaid'] as num?)?.toDouble() ?? 0.0,
+          paidAt: (data['paidAt'] as Timestamp?)?.toDate(),
         );
         invoice.recalculateTotals();
         return invoice;
@@ -655,6 +679,10 @@ class FirestoreService {
         date: (data['date'] as Timestamp).toDate(),
         lineItems: lineItems,
         discountAmount: (data['discountAmount'] as num?)?.toDouble() ?? 0.0,
+        cashPaid: (data['cashPaid'] as num?)?.toDouble() ?? 0.0,
+        upiPaid: (data['upiPaid'] as num?)?.toDouble() ?? 0.0,
+        cardPaid: (data['cardPaid'] as num?)?.toDouble() ?? 0.0,
+        paidAt: (data['paidAt'] as Timestamp?)?.toDate(),
       );
       invoice.recalculateTotals();
       return invoice;

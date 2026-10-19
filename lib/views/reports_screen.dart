@@ -1,9 +1,9 @@
-
 import 'package:flutter/material.dart';
 import 'package:printing/printing.dart';
 import 'package:provider/provider.dart';
 
 import '../models/invoice.dart';
+import '../services/firestore_service.dart';
 import '../services/invoice_pdf.dart';
 import '../view_models/sales_view_model.dart';
 
@@ -25,6 +25,7 @@ class ReportsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final viewModel = context.watch<SalesViewModel>();
+    final isOwner = FirestoreService.instance.isWorkspaceOwner;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Sales Reports')),
@@ -34,29 +35,30 @@ class ReportsScreen extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: _FolderSummaryCard(
-                      title: 'Revenue',
-                      value: '₹${viewModel.totalRevenue.toStringAsFixed(2)}',
-                      color: Colors.green,
-                      icon: Icons.folder_rounded,
+              if (isOwner)
+                Row(
+                  children: [
+                    Expanded(
+                      child: _FolderSummaryCard(
+                        title: 'Revenue',
+                        value: '₹${viewModel.totalRevenue.toStringAsFixed(2)}',
+                        color: Colors.green,
+                        icon: Icons.folder_rounded,
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _FolderSummaryCard(
-                      title: 'Expense',
-                      value:
-                          '₹${viewModel.totalExpenditure.toStringAsFixed(2)}',
-                      color: Colors.red,
-                      icon: Icons.folder_rounded,
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _FolderSummaryCard(
+                        title: 'Expense',
+                        value:
+                            '₹${viewModel.totalExpenditure.toStringAsFixed(2)}',
+                        color: Colors.red,
+                        icon: Icons.folder_rounded,
+                      ),
                     ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 10),
+                  ],
+                ),
+              if (isOwner) const SizedBox(height: 10),
               Align(
                 alignment: Alignment.centerLeft,
                 child: Chip(
@@ -103,7 +105,7 @@ class ReportsScreen extends StatelessWidget {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    '${invoice.date.day}/${invoice.date.month}/${invoice.date.year} • ${invoice.lineItems.length} items',
+                                    '${invoice.formattedDateTime} • ${invoice.lineItems.length} items',
                                   ),
                                   const SizedBox(height: 6),
                                   Text(

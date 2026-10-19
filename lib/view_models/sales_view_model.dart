@@ -655,6 +655,34 @@ class SalesViewModel extends ChangeNotifier {
     return invoice;
   }
 
+  Future<void> recordPayment(
+    Invoice invoice, {
+    required double cash,
+    required double upi,
+    required double card,
+  }) async {
+    if (cash < 0 || upi < 0 || card < 0 || cash + upi + card <= 0) {
+      throw StateError('Enter the amount received for at least one mode.');
+    }
+
+    invoice
+      ..cashPaid = cash
+      ..upiPaid = upi
+      ..cardPaid = card
+      ..paidAt = DateTime.now();
+    notifyListeners();
+
+    try {
+      await FirestoreService.instance.saveInvoicePayment(
+        invoice,
+        userId: _currentUserId,
+      );
+    } catch (error) {
+      _errorMessage = 'Payment saved locally but cloud sync failed: $error';
+      notifyListeners();
+    }
+  }
+
   @override
   void dispose() {
     _authSubscription?.cancel();

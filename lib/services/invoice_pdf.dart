@@ -19,7 +19,6 @@ Future<Uint8List> buildInvoicePdf(Invoice invoice) async {
   final customer = invoice.customerName.trim().isEmpty
       ? 'Walk-in Customer'
       : invoice.customerName;
-  final date = invoice.date;
   final roundedNet = (invoice.netTotal / 10).round() * 10.0;
   final roundOff = roundedNet - invoice.netTotal;
 
@@ -66,7 +65,7 @@ Future<Uint8List> buildInvoicePdf(Invoice invoice) async {
                   ),
                 ),
                 pw.Text(
-                  '${date.day}/${date.month}/${date.year}',
+                  invoice.formattedDateTime,
                   style: const pw.TextStyle(color: _muted),
                 ),
               ],

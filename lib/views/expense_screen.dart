@@ -397,33 +397,35 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
                     ],
                   ),
                 ),
-                const SizedBox(height: 18),
-                LayoutBuilder(
-                  builder: (context, constraints) {
-                    final cardWidth = (constraints.maxWidth - 12) / 2;
-                    return Row(
-                      children: [
-                        SizedBox(
-                          width: cardWidth,
-                          child: _ExpenseStatCard(
-                            title: 'Total expenditure',
-                            value: '₹${totalExpenditure.toStringAsFixed(2)}',
-                            color: Colors.red,
+                if (FirestoreService.instance.isWorkspaceOwner) ...[
+                  const SizedBox(height: 18),
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      final cardWidth = (constraints.maxWidth - 12) / 2;
+                      return Row(
+                        children: [
+                          SizedBox(
+                            width: cardWidth,
+                            child: _ExpenseStatCard(
+                              title: 'Total expenditure',
+                              value: '₹${totalExpenditure.toStringAsFixed(2)}',
+                              color: Colors.red,
+                            ),
                           ),
-                        ),
-                        const SizedBox(width: 12),
-                        SizedBox(
-                          width: cardWidth,
-                          child: _ExpenseStatCard(
-                            title: 'This month',
-                            value: '₹${monthExpenditure.toStringAsFixed(2)}',
-                            color: Colors.orange,
+                          const SizedBox(width: 12),
+                          SizedBox(
+                            width: cardWidth,
+                            child: _ExpenseStatCard(
+                              title: 'This month',
+                              value: '₹${monthExpenditure.toStringAsFixed(2)}',
+                              color: Colors.orange,
+                            ),
                           ),
-                        ),
-                      ],
-                    );
-                  },
-                ),
+                        ],
+                      );
+                    },
+                  ),
+                ],
                 const SizedBox(height: 18),
                 Row(
                   children: [
