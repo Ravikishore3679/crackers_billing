@@ -8,6 +8,7 @@ import '../models/invoice.dart';
 import '../services/invoice_pdf.dart';
 import '../view_models/sales_view_model.dart';
 import 'invoice_receipt_card.dart';
+import 'payment_section.dart';
 
 class SalesScreen extends StatelessWidget {
   const SalesScreen({super.key});
@@ -1123,6 +1124,12 @@ class _CartPanel extends StatelessWidget {
                       InvoiceReceiptCard(
                         invoice: viewModel.lastGeneratedInvoice!,
                         boundaryKey: _billKey,
+                      ),
+                      const SizedBox(height: 12),
+                      PaymentSection(
+                        key: ValueKey(viewModel.lastGeneratedInvoice!.id),
+                        invoice: viewModel.lastGeneratedInvoice!,
+                        viewModel: viewModel,
                       ),
                       const SizedBox(height: 12),
                       Wrap(

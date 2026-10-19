@@ -12,9 +12,9 @@ class Invoice {
     this.upiPaid = 0.0,
     this.cardPaid = 0.0,
     this.paidAt,
-  })  : lineItems = List<InvoiceLineItem>.from(lineItems),
-        grossTotal = 0.0,
-        netTotal = 0.0 {
+  }) : lineItems = List<InvoiceLineItem>.from(lineItems),
+       grossTotal = 0.0,
+       netTotal = 0.0 {
     recalculateTotals();
   }
 
@@ -52,10 +52,8 @@ class Invoice {
     return parts.join(' • ');
   }
 
-  double get taxTotal => lineItems.fold(
-        0.0,
-        (total, item) => total + item.taxAmount,
-      );
+  double get taxTotal =>
+      lineItems.fold(0.0, (total, item) => total + item.taxAmount);
 
   String get formattedDateTime {
     final hour12 = date.hour % 12 == 0 ? 12 : date.hour % 12;
@@ -65,7 +63,9 @@ class Invoice {
   }
 
   String get invoiceSummaryText {
-    final customer = customerName.trim().isNotEmpty ? customerName : 'Walk-in Customer';
+    final customer = customerName.trim().isNotEmpty
+        ? customerName
+        : 'Walk-in Customer';
     final lines = <String>[
       'CRACKERS SALES & INVOICES',
       'Invoice: $id',
@@ -89,10 +89,7 @@ class Invoice {
   }
 
   void recalculateTotals() {
-    grossTotal = lineItems.fold(
-      0.0,
-      (total, item) => total + item.subtotal,
-    );
+    grossTotal = lineItems.fold(0.0, (total, item) => total + item.subtotal);
 
     final safeDiscount = discountAmount.clamp(0.0, grossTotal);
     netTotal = grossTotal + taxTotal - safeDiscount;

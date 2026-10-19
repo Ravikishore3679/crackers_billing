@@ -204,6 +204,20 @@ class InvoiceReceiptCard extends StatelessWidget {
                   ],
                 ),
               ),
+              const SizedBox(height: 8),
+              Text(
+                invoice.paymentRecorded
+                    ? '${invoice.paymentStatusLabel.toUpperCase()}${invoice.paymentBreakdown.isEmpty ? '' : ' - ${invoice.paymentBreakdown}'}'
+                    : 'PAYMENT PENDING',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 11,
+                  color: invoice.isFullyPaid
+                      ? const Color(0xFF2E7D32)
+                      : _deepOrange,
+                ),
+              ),
               const SizedBox(height: 14),
               Container(
                 padding: const EdgeInsets.only(top: 8),

@@ -162,6 +162,20 @@ Future<Uint8List> buildInvoicePdf(Invoice invoice) async {
             ),
           ),
         ),
+        pw.SizedBox(height: 14),
+        pw.Align(
+          alignment: pw.Alignment.centerRight,
+          child: pw.Text(
+            invoice.paymentRecorded
+                ? '${invoice.paymentStatusLabel.toUpperCase()}${invoice.paymentBreakdown.isEmpty ? '' : '  -  ${invoice.paymentBreakdown}'}'
+                : 'PAYMENT PENDING',
+            style: pw.TextStyle(
+              fontWeight: pw.FontWeight.bold,
+              fontSize: 10,
+              color: invoice.isFullyPaid ? PdfColors.green800 : _deepOrange,
+            ),
+          ),
+        ),
       ],
     ),
   );
