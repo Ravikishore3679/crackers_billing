@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../services/firestore_service.dart';
 import 'app_shell.dart';
+import 'profile_setup_screen.dart';
 import 'sign_in_screen.dart';
 
 class AuthGate extends StatelessWidget {
@@ -50,12 +51,64 @@ class AuthGate extends StatelessWidget {
                   ),
                 );
               }
-              return const AppShell();
+              return _ProfileGate(user: user);
             },
           );
         }
 
         return const SignInScreen();
+      },
+    );
+  }
+}
+
+class _ProfileGate extends StatefulWidget {
+  const _ProfileGate({required this.user});
+
+  final User user;
+
+  @override
+  State<_ProfileGate> createState() => _ProfileGateState();
+}
+
+class _ProfileGateState extends State<_ProfileGate> {
+  late final Future<bool> _hasProfile = _load();
+  bool _completed = false;
+
+  // Never block the app if the profile cannot be read.
+  Future<bool> _load() async {
+    try {
+      final profile = await FirestoreService.instance.fetchUserProfile(
+        widget.user.uid,
+      );
+      final name = (profile?['name'] as String?)?.trim() ?? '';
+      final phone = (profile?['phone'] as String?)?.trim() ?? '';
+      return name.isNotEmpty && phone.isNotEmpty;
+    } catch (_) {
+      return true;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_completed) {
+      return const AppShell();
+    }
+    return FutureBuilder<bool>(
+      future: _hasProfile,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
+        if (snapshot.data == true) {
+          return const AppShell();
+        }
+        return ProfileSetupScreen(
+          user: widget.user,
+          onSaved: () => setState(() => _completed = true),
+        );
       },
     );
   }

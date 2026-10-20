@@ -266,6 +266,7 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
                           amount: amount,
                           date: selectedDate,
                           icon: _defaultExpenseIcon(title),
+                          createdBy: FirestoreService.instance.currentUserName,
                         ),
                       );
                     });
@@ -530,12 +531,26 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
                                   ),
                                   const SizedBox(width: 10),
                                   Expanded(
-                                    child: Text(
-                                      expense.title,
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.w600,
-                                        fontSize: 14,
-                                      ),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          expense.title,
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.w600,
+                                            fontSize: 14,
+                                          ),
+                                        ),
+                                        if (expense.createdBy.isNotEmpty)
+                                          Text(
+                                            'Added by ${expense.createdBy}',
+                                            style: const TextStyle(
+                                              fontSize: 11,
+                                              color: Colors.black54,
+                                            ),
+                                          ),
+                                      ],
                                     ),
                                   ),
                                   Text(
@@ -644,8 +659,10 @@ class _ExpenseEntry {
     required this.amount,
     required this.date,
     required this.icon,
+    this.createdBy = '',
   });
 
+  final String createdBy;
   final String title;
   final double amount;
   final DateTime? date;
@@ -658,6 +675,7 @@ class _ExpenseEntry {
       amount: (json['amount'] as num?)?.toDouble() ?? 0.0,
       date: parsedDate ?? DateTime.now(),
       icon: _iconFromCode(json['icon'] as String? ?? 'receipt'),
+      createdBy: json['createdBy'] as String? ?? '',
     );
   }
 
@@ -667,6 +685,7 @@ class _ExpenseEntry {
       'amount': amount,
       'date': (date ?? DateTime.now()).millisecondsSinceEpoch,
       'icon': _iconCode(icon),
+      if (createdBy.isNotEmpty) 'createdBy': createdBy,
     };
   }
 

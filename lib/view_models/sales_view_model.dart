@@ -591,6 +591,7 @@ class SalesViewModel extends ChangeNotifier {
       date: DateTime.now(),
       lineItems: _cart.map((lineItem) => lineItem.copyWith()).toList(),
       discountAmount: safeDiscount,
+      createdBy: FirestoreService.instance.currentUserName,
     );
 
     final updatedItems = <CrackerItem>[];

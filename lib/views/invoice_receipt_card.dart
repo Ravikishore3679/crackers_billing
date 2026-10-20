@@ -112,6 +112,11 @@ class InvoiceReceiptCard extends StatelessWidget {
                         invoice.formattedDateTime,
                         style: const TextStyle(color: _muted),
                       ),
+                      if (invoice.createdBy.isNotEmpty)
+                        Text(
+                          'Billed by ${invoice.createdBy}',
+                          style: const TextStyle(color: _muted),
+                        ),
                     ],
                   ),
                 ],

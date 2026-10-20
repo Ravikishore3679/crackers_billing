@@ -68,6 +68,11 @@ Future<Uint8List> buildInvoicePdf(Invoice invoice) async {
                   invoice.formattedDateTime,
                   style: const pw.TextStyle(color: _muted),
                 ),
+                if (invoice.createdBy.isNotEmpty)
+                  pw.Text(
+                    'Billed by ${invoice.createdBy}',
+                    style: const pw.TextStyle(color: _muted),
+                  ),
               ],
             ),
           ],

@@ -22,6 +22,13 @@ class FirestoreService {
   bool get canManageInventory => isWorkspaceOwner;
   bool get canManageStaff => isWorkspaceOwner;
 
+  String get currentUserName {
+    if (Firebase.apps.isEmpty) return '';
+    final user = FirebaseAuth.instance.currentUser;
+    final name = user?.displayName?.trim() ?? '';
+    return name.isNotEmpty ? name : (user?.email ?? '');
+  }
+
   static void clearWorkspaceSession() {
     final userId = _activeUserId;
     if (userId != null) {
@@ -62,7 +69,9 @@ class FirestoreService {
     if (existingWorkspace != null && existingWorkspace.isNotEmpty) {
       final membership = await _workspaceStep(
         'Reading the workspace membership',
-        _userDocument(existingWorkspace).collection('members').doc(user.uid).get,
+        _userDocument(
+          existingWorkspace,
+        ).collection('members').doc(user.uid).get,
       );
       if (membership.exists) {
         _activeUserId = user.uid;
@@ -268,6 +277,28 @@ class FirestoreService {
 
   DocumentReference<Map<String, dynamic>> _expenseDocument(String uid) =>
       _userDocument(uid).collection('expenses').doc('entries');
+
+  DocumentReference<Map<String, dynamic>> _profileDocument(String uid) =>
+      _userDocument(uid).collection('profile').doc('info');
+
+  Future<Map<String, dynamic>?> fetchUserProfile(String uid) async {
+    final snapshot = await _profileDocument(uid).get();
+    return snapshot.data();
+  }
+
+  Future<void> saveUserProfile(
+    User user, {
+    required String name,
+    required String phone,
+  }) async {
+    await _profileDocument(user.uid).set({
+      'name': name,
+      'phone': phone,
+      'email': user.email,
+      'createdAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+    await user.updateDisplayName(name);
+  }
 
   Future<void> _ensureUserDocument(
     String uid, {
@@ -587,6 +618,7 @@ class FirestoreService {
       'netTotal': invoice.netTotal,
       'lineItems': invoice.lineItems.map((item) => item.toMap()).toList(),
       'userId': uid,
+      if (invoice.createdBy.isNotEmpty) 'createdByName': invoice.createdBy,
       'createdAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
   }
@@ -642,6 +674,7 @@ class FirestoreService {
           upiPaid: (data['upiPaid'] as num?)?.toDouble() ?? 0.0,
           cardPaid: (data['cardPaid'] as num?)?.toDouble() ?? 0.0,
           paidAt: (data['paidAt'] as Timestamp?)?.toDate(),
+          createdBy: data['createdByName'] as String? ?? '',
         );
         invoice.recalculateTotals();
         return invoice;
@@ -683,6 +716,7 @@ class FirestoreService {
         upiPaid: (data['upiPaid'] as num?)?.toDouble() ?? 0.0,
         cardPaid: (data['cardPaid'] as num?)?.toDouble() ?? 0.0,
         paidAt: (data['paidAt'] as Timestamp?)?.toDate(),
+        createdBy: data['createdByName'] as String? ?? '',
       );
       invoice.recalculateTotals();
       return invoice;

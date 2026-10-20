@@ -70,6 +70,10 @@ service cloud.firestore {
         allow update, delete: if isOwner(userUid);
       }
 
+      match /profile/{document=**} {
+        allow read, write: if signedIn() && request.auth.uid == userUid;
+      }
+
       match /{collection}/{document=**} {
         function isWorkspaceCollection() {
           return collection in ['sales', 'inventory', 'app_settings', 'reports', 'expenses'];

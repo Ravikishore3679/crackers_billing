@@ -123,6 +123,8 @@ class _ReportsScreenState extends State<ReportsScreen> {
                 style: const TextStyle(fontWeight: FontWeight.w700),
               ),
               Text(invoice.formattedDateTime),
+              if (invoice.createdBy.isNotEmpty)
+                Text('Billed by ${invoice.createdBy}'),
               const SizedBox(height: 10),
               PaymentSection(
                 key: ValueKey(invoice.id),
@@ -260,6 +262,8 @@ class _ReportsScreenState extends State<ReportsScreen> {
                                     '${invoice.formattedDateTime} • ${invoice.lineItems.length} items',
                                   ),
                                   const SizedBox(height: 6),
+                                  if (invoice.createdBy.isNotEmpty)
+                                    Text('Billed by ${invoice.createdBy}'),
                                   Text(
                                     'Invoice: ${invoice.id}',
                                     style: const TextStyle(fontSize: 12),

@@ -12,6 +12,7 @@ class Invoice {
     this.upiPaid = 0.0,
     this.cardPaid = 0.0,
     this.paidAt,
+    this.createdBy = '',
   }) : lineItems = List<InvoiceLineItem>.from(lineItems),
        grossTotal = 0.0,
        netTotal = 0.0 {
@@ -30,6 +31,7 @@ class Invoice {
   double upiPaid;
   double cardPaid;
   DateTime? paidAt;
+  final String createdBy;
 
   double get roundedNetTotal => (netTotal / 10).round() * 10.0;
   double get amountPaid => cashPaid + upiPaid + cardPaid;
@@ -72,6 +74,7 @@ class Invoice {
       'Customer: $customer',
       'Phone: ${customerPhone.isEmpty ? 'Not provided' : customerPhone}',
       'Date: $formattedDateTime',
+      if (createdBy.isNotEmpty) 'Billed by: $createdBy',
       '---',
       ...lineItems.map(
         (item) =>
@@ -109,6 +112,7 @@ class Invoice {
     double? upiPaid,
     double? cardPaid,
     DateTime? paidAt,
+    String? createdBy,
   }) {
     final updatedInvoice = Invoice(
       id: id ?? this.id,
@@ -121,6 +125,7 @@ class Invoice {
       upiPaid: upiPaid ?? this.upiPaid,
       cardPaid: cardPaid ?? this.cardPaid,
       paidAt: paidAt ?? this.paidAt,
+      createdBy: createdBy ?? this.createdBy,
     );
     updatedInvoice.recalculateTotals();
     return updatedInvoice;
