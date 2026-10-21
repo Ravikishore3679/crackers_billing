@@ -95,7 +95,7 @@ service cloud.firestore {
         allow update: if isWorkspaceCollection()
           && (isOwner(userUid)
             || (isBillingStaff(userUid)
-              && collection in ['reports', 'expenses']));
+              && collection in ['sales', 'reports', 'expenses']));
         allow delete: if isWorkspaceCollection()
           && (isOwner(userUid)
             || (isBillingStaff(userUid) && collection == 'expenses'));
