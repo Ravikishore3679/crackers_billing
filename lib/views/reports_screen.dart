@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../models/invoice.dart';
 import '../services/firestore_service.dart';
+import '../services/invoice_email_service.dart';
 import '../services/invoice_pdf.dart';
 import '../view_models/sales_view_model.dart';
 import 'payment_section.dart';
@@ -182,6 +183,27 @@ class _ReportsScreenState extends State<ReportsScreen> {
     }
   }
 
+  Future<void> _emailInvoice(Invoice invoice) async {
+    try {
+      final composerOpened = await composeInvoiceEmail(invoice);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            composerOpened
+                ? 'Email composer opened.'
+                : 'Invoice PDF ready to attach to an email.',
+          ),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Could not open email: $error')));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final viewModel = context.watch<SalesViewModel>();
@@ -340,6 +362,8 @@ class _ReportsScreenState extends State<ReportsScreen> {
                                   const SizedBox(height: 6),
                                   if (invoice.createdBy.isNotEmpty)
                                     Text('Billed by ${invoice.createdBy}'),
+                                  if (invoice.customerEmail.isNotEmpty)
+                                    Text('Email: ${invoice.customerEmail}'),
                                   if (invoice.paymentMarkedBy.isNotEmpty)
                                     Text(
                                       'Payment marked by ${invoice.paymentMarkedBy}',
@@ -391,6 +415,13 @@ class _ReportsScreenState extends State<ReportsScreen> {
                                     tooltip: 'Print invoice',
                                     onPressed: () => _printInvoice(invoice),
                                     icon: const Icon(Icons.print_rounded),
+                                  ),
+                                  IconButton(
+                                    tooltip: 'Email invoice',
+                                    onPressed: invoice.customerEmail.isEmpty
+                                        ? null
+                                        : () => _emailInvoice(invoice),
+                                    icon: const Icon(Icons.email_outlined),
                                   ),
                                 ],
                               ),

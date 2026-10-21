@@ -58,11 +58,13 @@ void main() {
 
       viewModel.customerNameController.text = 'Ravi';
       viewModel.customerPhoneController.text = '9876543210';
+      viewModel.customerEmailController.text = 'ravi@example.com';
       viewModel.notesController.text = 'Deliver after 5 PM';
       viewModel.addToCart(viewModel.catalog.first);
       final invoice = await viewModel.checkout();
 
       expect(invoice.customerName, 'Ravi');
+      expect(invoice.customerEmail, 'ravi@example.com');
       expect(invoice.notes, 'Deliver after 5 PM');
       expect(invoice.invoiceSummaryText, contains('Notes: Deliver after 5 PM'));
       expect(invoice.lineItems.length, 1);
@@ -120,11 +122,13 @@ void main() {
       );
       viewModel.addToCart(viewModel.catalog.first);
       viewModel.notesController.text = 'Deliver after 5 PM';
+      viewModel.customerEmailController.text = 'ravi@example.com';
 
       viewModel.holdCurrentCart();
       viewModel.resumeHeldCart(viewModel.heldCarts.first.id);
 
       expect(viewModel.notesController.text, 'Deliver after 5 PM');
+      expect(viewModel.customerEmailController.text, 'ravi@example.com');
     });
 
     test('fixed and percentage discounts are mutually exclusive', () {

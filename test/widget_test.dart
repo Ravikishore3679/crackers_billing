@@ -135,6 +135,7 @@ void main() {
         stockAvailable: 5,
       ),
     );
+    viewModel.customerEmailController.text = 'customer@example.com';
     viewModel.addToCart(viewModel.catalog.first);
     await viewModel.checkout();
 
@@ -147,6 +148,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byTooltip('Print invoice'), findsOneWidget);
+    expect(find.byTooltip('Email invoice'), findsOneWidget);
     expect(find.textContaining('Invoice:'), findsOneWidget);
     expect(find.text('Total bills generated: 1'), findsOneWidget);
   });

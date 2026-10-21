@@ -16,6 +16,7 @@ class HeldCartDraft {
     required this.lineItems,
     required this.customerName,
     required this.customerPhone,
+    required this.customerEmail,
     required this.notes,
     required this.discountPercent,
     required this.discountValue,
@@ -26,6 +27,7 @@ class HeldCartDraft {
   final List<InvoiceLineItem> lineItems;
   final String customerName;
   final String customerPhone;
+  final String customerEmail;
   final String notes;
   final double discountPercent;
   final double discountValue;
@@ -83,6 +85,7 @@ class SalesViewModel extends ChangeNotifier {
 
   final TextEditingController customerNameController = TextEditingController();
   final TextEditingController customerPhoneController = TextEditingController();
+  final TextEditingController customerEmailController = TextEditingController();
   final TextEditingController notesController = TextEditingController();
   final TextEditingController discountController = TextEditingController();
   final TextEditingController discountValueController = TextEditingController();
@@ -193,6 +196,7 @@ class SalesViewModel extends ChangeNotifier {
     _discountValue = 0.0;
     customerNameController.clear();
     customerPhoneController.clear();
+    customerEmailController.clear();
     notesController.clear();
     discountController.text = '0.00';
     discountValueController.clear();
@@ -542,6 +546,7 @@ class SalesViewModel extends ChangeNotifier {
       lineItems: _cart.map((lineItem) => lineItem.copyWith()).toList(),
       customerName: customerName,
       customerPhone: customerPhoneController.text.trim(),
+      customerEmail: customerEmailController.text.trim(),
       notes: notesController.text.trim(),
       discountPercent: _discountPercent,
       discountValue: _discountValue,
@@ -556,6 +561,7 @@ class SalesViewModel extends ChangeNotifier {
     discountValueController.clear();
     customerNameController.clear();
     customerPhoneController.clear();
+    customerEmailController.clear();
     notesController.clear();
     _errorMessage = null;
     notifyListeners();
@@ -577,6 +583,7 @@ class SalesViewModel extends ChangeNotifier {
       ..addAll(draft.lineItems.map((lineItem) => lineItem.copyWith()));
     customerNameController.text = draft.customerName;
     customerPhoneController.text = draft.customerPhone;
+    customerEmailController.text = draft.customerEmail;
     notesController.text = draft.notes;
     _discountPercent = draft.discountPercent;
     _discountValue = draft.discountValue;
@@ -681,6 +688,7 @@ class SalesViewModel extends ChangeNotifier {
       id: 'INV-${DateTime.now().millisecondsSinceEpoch}',
       customerName: customerName,
       customerPhone: customerPhoneController.text.trim(),
+      customerEmail: customerEmailController.text.trim(),
       date: DateTime.now(),
       lineItems: _cart.map((lineItem) => lineItem.copyWith()).toList(),
       notes: notesController.text.trim(),
@@ -711,6 +719,7 @@ class SalesViewModel extends ChangeNotifier {
     discountValueController.clear();
     customerNameController.clear();
     customerPhoneController.clear();
+    customerEmailController.clear();
     notesController.clear();
     _errorMessage = null;
     notifyListeners();
@@ -812,6 +821,7 @@ class SalesViewModel extends ChangeNotifier {
     _cancelLiveSubscriptions();
     customerNameController.dispose();
     customerPhoneController.dispose();
+    customerEmailController.dispose();
     notesController.dispose();
     discountController.dispose();
     discountValueController.dispose();

@@ -51,6 +51,11 @@ Future<Uint8List> buildInvoicePdf(Invoice invoice) async {
                     invoice.customerPhone,
                     style: const pw.TextStyle(color: _muted),
                   ),
+                if (invoice.customerEmail.isNotEmpty)
+                  pw.Text(
+                    invoice.customerEmail,
+                    style: const pw.TextStyle(color: _muted),
+                  ),
               ],
             ),
             pw.Column(

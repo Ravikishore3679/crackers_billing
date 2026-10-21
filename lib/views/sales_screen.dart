@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 
 import '../models/cracker_item.dart';
 import '../models/invoice.dart';
+import '../services/invoice_email_service.dart';
 import '../services/invoice_pdf.dart';
 import '../view_models/sales_view_model.dart';
 import 'invoice_receipt_card.dart';
@@ -681,6 +682,27 @@ class _CartPanel extends StatelessWidget {
     }
   }
 
+  Future<void> _emailInvoice(BuildContext context, Invoice invoice) async {
+    try {
+      final composerOpened = await composeInvoiceEmail(invoice);
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            composerOpened
+                ? 'Email composer opened.'
+                : 'Invoice PDF ready to attach to an email.',
+          ),
+        ),
+      );
+    } catch (error) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Could not open email: $error')));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -795,6 +817,16 @@ class _CartPanel extends StatelessWidget {
                       keyboardType: TextInputType.phone,
                       decoration: const InputDecoration(
                         labelText: 'Customer Phone',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: viewModel.customerEmailController,
+                      keyboardType: TextInputType.emailAddress,
+                      autofillHints: const [AutofillHints.email],
+                      decoration: const InputDecoration(
+                        labelText: 'Customer Email',
                         border: OutlineInputBorder(),
                       ),
                     ),
@@ -1167,6 +1199,23 @@ class _CartPanel extends StatelessWidget {
                         spacing: 10,
                         runSpacing: 10,
                         children: [
+                          SizedBox(
+                            width: 140,
+                            child: OutlinedButton.icon(
+                              onPressed:
+                                  viewModel
+                                      .lastGeneratedInvoice!
+                                      .customerEmail
+                                      .isEmpty
+                                  ? null
+                                  : () => _emailInvoice(
+                                      context,
+                                      viewModel.lastGeneratedInvoice!,
+                                    ),
+                              icon: const Icon(Icons.email_outlined),
+                              label: const Text('Email invoice'),
+                            ),
+                          ),
                           SizedBox(
                             width: 140,
                             child: OutlinedButton.icon(

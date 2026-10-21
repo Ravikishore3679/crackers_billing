@@ -97,6 +97,11 @@ class InvoiceReceiptCard extends StatelessWidget {
                             invoice.customerPhone,
                             style: const TextStyle(color: _muted),
                           ),
+                        if (invoice.customerEmail.isNotEmpty)
+                          Text(
+                            invoice.customerEmail,
+                            style: const TextStyle(color: _muted, fontSize: 11),
+                          ),
                         if (invoice.notes.trim().isNotEmpty) ...[
                           const SizedBox(height: 4),
                           Text(

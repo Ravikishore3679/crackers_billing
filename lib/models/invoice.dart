@@ -5,6 +5,7 @@ class Invoice {
     required this.id,
     required this.customerName,
     required this.customerPhone,
+    this.customerEmail = '',
     required this.date,
     required List<InvoiceLineItem> lineItems,
     this.notes = '',
@@ -24,6 +25,7 @@ class Invoice {
   final String id;
   final String customerName;
   final String customerPhone;
+  final String customerEmail;
   final String notes;
   final DateTime date;
   final List<InvoiceLineItem> lineItems;
@@ -77,6 +79,7 @@ class Invoice {
       'Invoice: $id',
       'Customer: $customer',
       'Phone: ${customerPhone.isEmpty ? 'Not provided' : customerPhone}',
+      if (customerEmail.isNotEmpty) 'Email: $customerEmail',
       'Date: $formattedDateTime',
       if (notes.trim().isNotEmpty) 'Notes: ${notes.trim()}',
       if (createdBy.isNotEmpty) 'Billed by: $createdBy',
@@ -110,6 +113,7 @@ class Invoice {
     String? id,
     String? customerName,
     String? customerPhone,
+    String? customerEmail,
     String? notes,
     DateTime? date,
     List<InvoiceLineItem>? lineItems,
@@ -125,6 +129,7 @@ class Invoice {
       id: id ?? this.id,
       customerName: customerName ?? this.customerName,
       customerPhone: customerPhone ?? this.customerPhone,
+      customerEmail: customerEmail ?? this.customerEmail,
       notes: notes ?? this.notes,
       date: date ?? this.date,
       lineItems: lineItems ?? this.lineItems,
