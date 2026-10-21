@@ -16,7 +16,9 @@ class HeldCartDraft {
     required this.lineItems,
     required this.customerName,
     required this.customerPhone,
+    required this.notes,
     required this.discountPercent,
+    required this.discountValue,
     required this.createdAt,
   });
 
@@ -24,7 +26,9 @@ class HeldCartDraft {
   final List<InvoiceLineItem> lineItems;
   final String customerName;
   final String customerPhone;
+  final String notes;
   final double discountPercent;
+  final double discountValue;
   final DateTime createdAt;
 
   int get totalQuantity =>
@@ -73,12 +77,15 @@ class SalesViewModel extends ChangeNotifier {
   Invoice? _lastGeneratedInvoice;
   String? _errorMessage;
   double _discountPercent = 0.0;
+  double _discountValue = 0.0;
   double totalExpenditure = 0.0;
   int _guestCustomerSequence = 1;
 
   final TextEditingController customerNameController = TextEditingController();
   final TextEditingController customerPhoneController = TextEditingController();
+  final TextEditingController notesController = TextEditingController();
   final TextEditingController discountController = TextEditingController();
+  final TextEditingController discountValueController = TextEditingController();
 
   List<CrackerItem> get catalog => List.unmodifiable(_catalog);
   List<InvoiceLineItem> get cart => List.unmodifiable(_cart);
@@ -87,7 +94,12 @@ class SalesViewModel extends ChangeNotifier {
   Invoice? get lastGeneratedInvoice => _lastGeneratedInvoice;
   String? get errorMessage => _errorMessage;
   double get discountPercent => _discountPercent;
-  double get discountAmount => grossTotal * _discountPercent / 100.0;
+  double get discountValue => _discountValue;
+  double get discountAmount =>
+      (_discountValue > 0
+              ? _discountValue
+              : grossTotal * _discountPercent / 100.0)
+          .clamp(0.0, grossTotal);
   double get totalRevenue =>
       _invoices.fold(0.0, (total, invoice) => total + invoice.netTotal);
   int get totalUnitsSold => _invoices.fold(
@@ -108,10 +120,10 @@ class SalesViewModel extends ChangeNotifier {
 
   double get netTotal {
     final safeDiscount = discountAmount.clamp(0.0, grossTotal);
-    return grossTotal + taxTotal - safeDiscount;
+    return grossTotal - safeDiscount;
   }
 
-  double get roundedNetTotal => (netTotal / 10).round() * 10.0;
+  double get roundedNetTotal => (netTotal / 10).floor() * 10.0;
 
   double get roundOffAmount => roundedNetTotal - netTotal;
 
@@ -178,7 +190,12 @@ class SalesViewModel extends ChangeNotifier {
     _invoices.clear();
     _lastGeneratedInvoice = null;
     _discountPercent = 0.0;
+    _discountValue = 0.0;
+    customerNameController.clear();
+    customerPhoneController.clear();
+    notesController.clear();
     discountController.text = '0.00';
+    discountValueController.clear();
     totalExpenditure = 0.0;
     _errorMessage = null;
   }
@@ -525,16 +542,21 @@ class SalesViewModel extends ChangeNotifier {
       lineItems: _cart.map((lineItem) => lineItem.copyWith()).toList(),
       customerName: customerName,
       customerPhone: customerPhoneController.text.trim(),
+      notes: notesController.text.trim(),
       discountPercent: _discountPercent,
+      discountValue: _discountValue,
       createdAt: DateTime.now(),
     );
 
     _heldCarts.insert(0, draft);
     _cart.clear();
     _discountPercent = 0.0;
+    _discountValue = 0.0;
     discountController.text = '0.00';
+    discountValueController.clear();
     customerNameController.clear();
     customerPhoneController.clear();
+    notesController.clear();
     _errorMessage = null;
     notifyListeners();
   }
@@ -555,8 +577,13 @@ class SalesViewModel extends ChangeNotifier {
       ..addAll(draft.lineItems.map((lineItem) => lineItem.copyWith()));
     customerNameController.text = draft.customerName;
     customerPhoneController.text = draft.customerPhone;
+    notesController.text = draft.notes;
     _discountPercent = draft.discountPercent;
+    _discountValue = draft.discountValue;
     discountController.text = draft.discountPercent.toStringAsFixed(2);
+    discountValueController.text = draft.discountValue > 0
+        ? draft.discountValue.toStringAsFixed(2)
+        : '';
     _errorMessage = null;
     notifyListeners();
   }
@@ -620,8 +647,21 @@ class SalesViewModel extends ChangeNotifier {
   }
 
   void applyDiscount(double amount) {
+    applyDiscountPercent(amount);
+  }
+
+  void applyDiscountPercent(double amount) {
     final safePercent = amount.clamp(0.0, 100.0);
     _discountPercent = safePercent;
+    _discountValue = 0.0;
+    discountValueController.clear();
+    notifyListeners();
+  }
+
+  void applyDiscountValue(double amount) {
+    _discountValue = amount.clamp(0.0, grossTotal);
+    _discountPercent = 0.0;
+    discountController.clear();
     notifyListeners();
   }
 
@@ -643,6 +683,7 @@ class SalesViewModel extends ChangeNotifier {
       customerPhone: customerPhoneController.text.trim(),
       date: DateTime.now(),
       lineItems: _cart.map((lineItem) => lineItem.copyWith()).toList(),
+      notes: notesController.text.trim(),
       discountAmount: safeDiscount,
       createdBy: FirestoreService.instance.currentUserName,
     );
@@ -665,9 +706,12 @@ class SalesViewModel extends ChangeNotifier {
     _invoices.insert(0, invoice);
     _cart.clear();
     _discountPercent = 0.0;
+    _discountValue = 0.0;
     discountController.text = '0.00';
+    discountValueController.clear();
     customerNameController.clear();
     customerPhoneController.clear();
+    notesController.clear();
     _errorMessage = null;
     notifyListeners();
 
@@ -725,7 +769,8 @@ class SalesViewModel extends ChangeNotifier {
       ..cashPaid = cash
       ..upiPaid = upi
       ..cardPaid = card
-      ..paidAt = DateTime.now();
+      ..paidAt = DateTime.now()
+      ..paymentMarkedBy = FirestoreService.instance.currentUserName;
 
     // A history reload may have replaced the list with new objects, so make
     // sure the invoice shown in reports carries the payment too.
@@ -735,7 +780,8 @@ class SalesViewModel extends ChangeNotifier {
           ..cashPaid = cash
           ..upiPaid = upi
           ..cardPaid = card
-          ..paidAt = invoice.paidAt;
+          ..paidAt = invoice.paidAt
+          ..paymentMarkedBy = invoice.paymentMarkedBy;
       }
     }
     notifyListeners();
@@ -766,7 +812,9 @@ class SalesViewModel extends ChangeNotifier {
     _cancelLiveSubscriptions();
     customerNameController.dispose();
     customerPhoneController.dispose();
+    notesController.dispose();
     discountController.dispose();
+    discountValueController.dispose();
     super.dispose();
   }
 }

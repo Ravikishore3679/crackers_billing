@@ -108,15 +108,8 @@ class InvoiceEntryScreen extends StatelessWidget {
               const SizedBox(height: 20),
               Row(
                 children: [
-                  const Expanded(child: Text('Gross Total')),
+                  const Expanded(child: Text('Gross Total (incl. GST)')),
                   Text('₹${viewModel.grossTotal.toStringAsFixed(2)}'),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  const Expanded(child: Text('GST')),
-                  Text('₹${viewModel.taxTotal.toStringAsFixed(2)}'),
                 ],
               ),
               const SizedBox(height: 8),

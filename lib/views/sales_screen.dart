@@ -733,7 +733,7 @@ class _CartPanel extends StatelessWidget {
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
-                                  '${draft.totalQuantity} items • ₹${draft.grossTotal.toStringAsFixed(2)} • ${draft.discountPercent.toStringAsFixed(2)}% discount',
+                                  '${draft.totalQuantity} items • ₹${draft.grossTotal.toStringAsFixed(2)} • ${draft.discountValue > 0 ? '₹${draft.discountValue.toStringAsFixed(2)}' : '${draft.discountPercent.toStringAsFixed(2)}%'} discount',
                                   style: TextStyle(color: Colors.grey.shade700),
                                 ),
                                 const SizedBox(height: 8),
@@ -796,6 +796,19 @@ class _CartPanel extends StatelessWidget {
                       decoration: const InputDecoration(
                         labelText: 'Customer Phone',
                         border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: viewModel.notesController,
+                      minLines: 2,
+                      maxLines: 4,
+                      textCapitalization: TextCapitalization.sentences,
+                      decoration: const InputDecoration(
+                        labelText: 'Notes',
+                        hintText: 'Optional note for this bill',
+                        border: OutlineInputBorder(),
+                        alignLabelWithHint: true,
                       ),
                     ),
                   ],
@@ -1006,45 +1019,59 @@ class _CartPanel extends StatelessWidget {
                   children: [
                     Row(
                       children: [
-                        const Expanded(child: Text('Discount (%)')),
-                        SizedBox(
-                          width: 120,
-                          child: TextFormField(
-                            key: ValueKey(viewModel.cart.length),
-                            initialValue: viewModel.discountPercent == 0
-                                ? ''
-                                : viewModel.discountPercent.toString(),
+                        Expanded(
+                          child: TextField(
+                            controller: viewModel.discountValueController,
                             keyboardType: const TextInputType.numberWithOptions(
                               decimal: true,
                             ),
                             textAlign: TextAlign.right,
                             decoration: const InputDecoration(
+                              labelText: 'Discount value',
+                              isDense: true,
+                              border: OutlineInputBorder(),
+                              hintText: '0.00',
+                              prefixText: '₹ ',
+                            ),
+                            onChanged: (value) => viewModel.applyDiscountValue(
+                              double.tryParse(value) ?? 0.0,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: TextField(
+                            controller: viewModel.discountController,
+                            keyboardType: const TextInputType.numberWithOptions(
+                              decimal: true,
+                            ),
+                            textAlign: TextAlign.right,
+                            decoration: const InputDecoration(
+                              labelText: 'Discount percent',
                               isDense: true,
                               border: OutlineInputBorder(),
                               hintText: '0',
                               suffixText: '%',
                             ),
-                            onChanged: (value) {
-                              final parsedValue = double.tryParse(value) ?? 0.0;
-                              viewModel.applyDiscount(parsedValue);
-                            },
-                            onFieldSubmitted: (value) {
-                              final parsedValue = double.tryParse(value) ?? 0.0;
-                              viewModel.applyDiscount(parsedValue);
-                            },
+                            onChanged: (value) =>
+                                viewModel.applyDiscountPercent(
+                                  double.tryParse(value) ?? 0.0,
+                                ),
                           ),
                         ),
                       ],
                     ),
                     const SizedBox(height: 8),
-                    _SummaryRow(label: 'Gross', value: viewModel.grossTotal),
-                    _SummaryRow(label: 'GST Tax', value: viewModel.taxTotal),
+                    _SummaryRow(
+                      label: 'Gross (incl. GST)',
+                      value: viewModel.grossTotal,
+                    ),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         const Text('Discount'),
                         Text(
-                          '${viewModel.discountPercent.toStringAsFixed(2)}% (₹${viewModel.discountAmount.toStringAsFixed(2)})',
+                          '${viewModel.discountValue > 0 ? '₹${viewModel.discountValue.toStringAsFixed(2)}' : '${viewModel.discountPercent.toStringAsFixed(2)}%'} (₹${viewModel.discountAmount.toStringAsFixed(2)})',
                           style: const TextStyle(fontWeight: FontWeight.w600),
                         ),
                       ],
@@ -1058,7 +1085,7 @@ class _CartPanel extends StatelessWidget {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text('Round Off (to ₹10)'),
+                        const Text('Round Down (to ₹10)'),
                         Text(
                           '${viewModel.roundOffAmount >= 0 ? '+' : '-'}₹${viewModel.roundOffAmount.abs().toStringAsFixed(2)}',
                           style: const TextStyle(fontWeight: FontWeight.w600),

@@ -32,7 +32,7 @@ class InvoiceReceiptCard extends StatelessWidget {
     final customer = invoice.customerName.trim().isNotEmpty
         ? invoice.customerName
         : 'Walk-in Customer';
-    final roundedNet = (invoice.netTotal / 10).round() * 10.0;
+    final roundedNet = (invoice.netTotal / 10).floor() * 10.0;
     final roundOff = roundedNet - invoice.netTotal;
 
     return RepaintBoundary(
@@ -97,6 +97,13 @@ class InvoiceReceiptCard extends StatelessWidget {
                             invoice.customerPhone,
                             style: const TextStyle(color: _muted),
                           ),
+                        if (invoice.notes.trim().isNotEmpty) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            'Note: ${invoice.notes.trim()}',
+                            style: const TextStyle(color: _muted, fontSize: 11),
+                          ),
+                        ],
                       ],
                     ),
                   ),
@@ -170,8 +177,7 @@ class InvoiceReceiptCard extends StatelessWidget {
                   ),
                 ),
               const SizedBox(height: 12),
-              _row('Gross Total', _money(invoice.grossTotal)),
-              _row('GST', _money(invoice.taxTotal)),
+              _row('Gross Total (incl. GST)', _money(invoice.grossTotal)),
               _row('Discount', '-${_money(invoice.discountAmount)}'),
               _row('Net Payable', _money(invoice.netTotal)),
               _row(
@@ -223,6 +229,14 @@ class InvoiceReceiptCard extends StatelessWidget {
                       : _deepOrange,
                 ),
               ),
+              if (invoice.paymentMarkedBy.isNotEmpty) ...[
+                const SizedBox(height: 4),
+                Text(
+                  'Payment marked by ${invoice.paymentMarkedBy}',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontSize: 10, color: Colors.black54),
+                ),
+              ],
               const SizedBox(height: 14),
               Container(
                 padding: const EdgeInsets.only(top: 8),

@@ -640,6 +640,7 @@ class FirestoreService {
       'id': invoice.id,
       'customerName': invoice.customerName,
       'customerPhone': invoice.customerPhone,
+      'notes': invoice.notes,
       'date': Timestamp.fromDate(invoice.date),
       'discountAmount': invoice.discountAmount,
       'grossTotal': invoice.grossTotal,
@@ -669,6 +670,7 @@ class FirestoreService {
       'paidAt': invoice.paidAt == null
           ? null
           : Timestamp.fromDate(invoice.paidAt!),
+      'paymentMarkedBy': invoice.paymentMarkedBy,
     }, SetOptions(merge: true));
   }
 
@@ -696,6 +698,7 @@ class FirestoreService {
           id: data['id'] as String? ?? doc.id,
           customerName: data['customerName'] as String? ?? '',
           customerPhone: data['customerPhone'] as String? ?? '',
+          notes: data['notes'] as String? ?? '',
           date: (data['date'] as Timestamp).toDate(),
           lineItems: lineItems,
           discountAmount: (data['discountAmount'] as num?)?.toDouble() ?? 0.0,
@@ -704,6 +707,7 @@ class FirestoreService {
           cardPaid: (data['cardPaid'] as num?)?.toDouble() ?? 0.0,
           paidAt: (data['paidAt'] as Timestamp?)?.toDate(),
           createdBy: data['createdByName'] as String? ?? '',
+          paymentMarkedBy: data['paymentMarkedBy'] as String? ?? '',
         );
         invoice.recalculateTotals();
         return invoice;
@@ -738,6 +742,7 @@ class FirestoreService {
         id: data['id'] as String? ?? doc.id,
         customerName: data['customerName'] as String? ?? '',
         customerPhone: data['customerPhone'] as String? ?? '',
+        notes: data['notes'] as String? ?? '',
         date: (data['date'] as Timestamp).toDate(),
         lineItems: lineItems,
         discountAmount: (data['discountAmount'] as num?)?.toDouble() ?? 0.0,
@@ -746,6 +751,7 @@ class FirestoreService {
         cardPaid: (data['cardPaid'] as num?)?.toDouble() ?? 0.0,
         paidAt: (data['paidAt'] as Timestamp?)?.toDate(),
         createdBy: data['createdByName'] as String? ?? '',
+        paymentMarkedBy: data['paymentMarkedBy'] as String? ?? '',
       );
       invoice.recalculateTotals();
       return invoice;

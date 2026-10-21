@@ -19,7 +19,7 @@ Future<Uint8List> buildInvoicePdf(Invoice invoice) async {
   final customer = invoice.customerName.trim().isEmpty
       ? 'Walk-in Customer'
       : invoice.customerName;
-  final roundedNet = (invoice.netTotal / 10).round() * 10.0;
+  final roundedNet = (invoice.netTotal / 10).floor() * 10.0;
   final roundOff = roundedNet - invoice.netTotal;
 
   pdf.addPage(
@@ -77,6 +77,27 @@ Future<Uint8List> buildInvoicePdf(Invoice invoice) async {
             ),
           ],
         ),
+        if (invoice.notes.trim().isNotEmpty) ...[
+          pw.SizedBox(height: 10),
+          pw.Container(
+            width: double.infinity,
+            padding: const pw.EdgeInsets.all(9),
+            decoration: pw.BoxDecoration(
+              color: _cream,
+              borderRadius: pw.BorderRadius.circular(5),
+            ),
+            child: pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                _label('NOTES'),
+                pw.Text(
+                  invoice.notes.trim(),
+                  style: const pw.TextStyle(color: _ink),
+                ),
+              ],
+            ),
+          ),
+        ],
         pw.SizedBox(height: 18),
         pw.TableHelper.fromTextArray(
           headers: const ['#', 'Item', 'Qty', 'Rate', 'Amount'],
@@ -124,8 +145,10 @@ Future<Uint8List> buildInvoicePdf(Invoice invoice) async {
             width: 230,
             child: pw.Column(
               children: [
-                _totalRow('Gross Total', _money(invoice.grossTotal)),
-                _totalRow('GST', _money(invoice.taxTotal)),
+                _totalRow(
+                  'Gross Total (incl. GST)',
+                  _money(invoice.grossTotal),
+                ),
                 _totalRow('Discount', '-${_money(invoice.discountAmount)}'),
                 _totalRow('Net Payable', _money(invoice.netTotal)),
                 _totalRow(
@@ -181,6 +204,14 @@ Future<Uint8List> buildInvoicePdf(Invoice invoice) async {
             ),
           ),
         ),
+        if (invoice.paymentMarkedBy.isNotEmpty)
+          pw.Align(
+            alignment: pw.Alignment.centerRight,
+            child: pw.Text(
+              'Payment marked by ${invoice.paymentMarkedBy}',
+              style: const pw.TextStyle(fontSize: 9, color: _muted),
+            ),
+          ),
       ],
     ),
   );

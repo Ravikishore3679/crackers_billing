@@ -154,6 +154,8 @@ class _ReportsScreenState extends State<ReportsScreen> {
               Text(invoice.formattedDateTime),
               if (invoice.createdBy.isNotEmpty)
                 Text('Billed by ${invoice.createdBy}'),
+              if (invoice.paymentMarkedBy.isNotEmpty)
+                Text('Payment marked by ${invoice.paymentMarkedBy}'),
               const SizedBox(height: 10),
               PaymentSection(
                 key: ValueKey(invoice.id),
@@ -189,10 +191,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
       return !d.isBefore(_fromDate) && !d.isAfter(_toDate);
     }).toList();
     final revenue = allInvoices.fold(0.0, (t, i) => t + i.netTotal);
-    final units = allInvoices.fold(
-      0,
-      (t, i) => t + i.lineItems.fold(0, (s, l) => s + l.quantity),
-    );
+    final totalBills = allInvoices.length;
     final expense = viewModel.expenseBetween(
       _fromDate,
       DateUtils.addDaysToDate(_toDate, 1),
@@ -279,7 +278,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                     Icons.confirmation_number_rounded,
                     size: 18,
                   ),
-                  label: Text('Units sold: $units'),
+                  label: Text('Total bills generated: $totalBills'),
                 ),
               ),
               const SizedBox(height: 14),
@@ -341,6 +340,10 @@ class _ReportsScreenState extends State<ReportsScreen> {
                                   const SizedBox(height: 6),
                                   if (invoice.createdBy.isNotEmpty)
                                     Text('Billed by ${invoice.createdBy}'),
+                                  if (invoice.paymentMarkedBy.isNotEmpty)
+                                    Text(
+                                      'Payment marked by ${invoice.paymentMarkedBy}',
+                                    ),
                                   Text(
                                     'Invoice: ${invoice.id}',
                                     style: const TextStyle(fontSize: 12),

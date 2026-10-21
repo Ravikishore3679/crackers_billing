@@ -7,12 +7,14 @@ class Invoice {
     required this.customerPhone,
     required this.date,
     required List<InvoiceLineItem> lineItems,
+    this.notes = '',
     this.discountAmount = 0.0,
     this.cashPaid = 0.0,
     this.upiPaid = 0.0,
     this.cardPaid = 0.0,
     this.paidAt,
     this.createdBy = '',
+    this.paymentMarkedBy = '',
   }) : lineItems = List<InvoiceLineItem>.from(lineItems),
        grossTotal = 0.0,
        netTotal = 0.0 {
@@ -22,6 +24,7 @@ class Invoice {
   final String id;
   final String customerName;
   final String customerPhone;
+  final String notes;
   final DateTime date;
   final List<InvoiceLineItem> lineItems;
   double discountAmount;
@@ -32,8 +35,9 @@ class Invoice {
   double cardPaid;
   DateTime? paidAt;
   final String createdBy;
+  String paymentMarkedBy;
 
-  double get roundedNetTotal => (netTotal / 10).round() * 10.0;
+  double get roundedNetTotal => (netTotal / 10).floor() * 10.0;
   double get amountPaid => cashPaid + upiPaid + cardPaid;
   double get balanceDue =>
       (roundedNetTotal - amountPaid).clamp(0.0, double.infinity);
@@ -74,6 +78,7 @@ class Invoice {
       'Customer: $customer',
       'Phone: ${customerPhone.isEmpty ? 'Not provided' : customerPhone}',
       'Date: $formattedDateTime',
+      if (notes.trim().isNotEmpty) 'Notes: ${notes.trim()}',
       if (createdBy.isNotEmpty) 'Billed by: $createdBy',
       '---',
       ...lineItems.map(
@@ -81,11 +86,11 @@ class Invoice {
             '${item.crackerItem.nameWithSubCategory} x ${item.quantity} = ₹${item.subtotal.toStringAsFixed(2)}',
       ),
       '---',
-      'Gross Total: ₹${grossTotal.toStringAsFixed(2)}',
-      'GST: ₹${taxTotal.toStringAsFixed(2)}',
+      'Gross Total (incl. GST): ₹${grossTotal.toStringAsFixed(2)}',
       'Discount: ₹${discountAmount.toStringAsFixed(2)}',
       'Net Payable: ₹${netTotal.toStringAsFixed(2)}',
       'Payment: $paymentStatusLabel${paymentRecorded && paymentBreakdown.isNotEmpty ? ' ($paymentBreakdown)' : ''}',
+      if (paymentMarkedBy.isNotEmpty) 'Payment marked by: $paymentMarkedBy',
     ];
 
     return lines.join('\n');
@@ -95,7 +100,7 @@ class Invoice {
     grossTotal = lineItems.fold(0.0, (total, item) => total + item.subtotal);
 
     final safeDiscount = discountAmount.clamp(0.0, grossTotal);
-    netTotal = grossTotal + taxTotal - safeDiscount;
+    netTotal = grossTotal - safeDiscount;
     if (netTotal < 0) {
       netTotal = 0.0;
     }
@@ -105,6 +110,7 @@ class Invoice {
     String? id,
     String? customerName,
     String? customerPhone,
+    String? notes,
     DateTime? date,
     List<InvoiceLineItem>? lineItems,
     double? discountAmount,
@@ -113,11 +119,13 @@ class Invoice {
     double? cardPaid,
     DateTime? paidAt,
     String? createdBy,
+    String? paymentMarkedBy,
   }) {
     final updatedInvoice = Invoice(
       id: id ?? this.id,
       customerName: customerName ?? this.customerName,
       customerPhone: customerPhone ?? this.customerPhone,
+      notes: notes ?? this.notes,
       date: date ?? this.date,
       lineItems: lineItems ?? this.lineItems,
       discountAmount: discountAmount ?? this.discountAmount,
@@ -126,6 +134,7 @@ class Invoice {
       cardPaid: cardPaid ?? this.cardPaid,
       paidAt: paidAt ?? this.paidAt,
       createdBy: createdBy ?? this.createdBy,
+      paymentMarkedBy: paymentMarkedBy ?? this.paymentMarkedBy,
     );
     updatedInvoice.recalculateTotals();
     return updatedInvoice;

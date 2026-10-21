@@ -14,7 +14,8 @@ class InvoiceLineItem {
 
   void recalculateTotals() {
     subtotal = crackerItem.unitPrice * quantity;
-    taxAmount = subtotal * crackerItem.taxRate;
+    final taxRate = crackerItem.taxRate;
+    taxAmount = taxRate == 0 ? 0 : subtotal * taxRate / (1 + taxRate);
   }
 
   InvoiceLineItem copyWith({CrackerItem? crackerItem, int? quantity}) {
