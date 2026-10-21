@@ -1,10 +1,7 @@
 import 'cracker_item.dart';
 
 class InvoiceLineItem {
-  InvoiceLineItem({
-    required this.crackerItem,
-    this.quantity = 1,
-  }) {
+  InvoiceLineItem({required this.crackerItem, this.quantity = 1}) {
     recalculateTotals();
   }
 
@@ -20,10 +17,7 @@ class InvoiceLineItem {
     taxAmount = subtotal * crackerItem.taxRate;
   }
 
-  InvoiceLineItem copyWith({
-    CrackerItem? crackerItem,
-    int? quantity,
-  }) {
+  InvoiceLineItem copyWith({CrackerItem? crackerItem, int? quantity}) {
     final updatedLineItem = InvoiceLineItem(
       crackerItem: crackerItem ?? this.crackerItem,
       quantity: quantity ?? this.quantity,
@@ -46,9 +40,9 @@ class InvoiceLineItem {
     );
 
     return InvoiceLineItem(
-      crackerItem: crackerItem,
-      quantity: map['quantity'] as int,
-    )
+        crackerItem: crackerItem,
+        quantity: map['quantity'] as int,
+      )
       ..subtotal = (map['subtotal'] as num).toDouble()
       ..taxAmount = (map['taxAmount'] as num).toDouble();
   }

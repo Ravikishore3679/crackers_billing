@@ -3,10 +3,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'firestore_service.dart';
 
 class InventoryCategory {
-  InventoryCategory({
-    required this.name,
-    required this.categoryIndex,
-  }) : code = InventoryCodeGenerator.generateCategoryCode(categoryIndex);
+  InventoryCategory({required this.name, required this.categoryIndex})
+    : code = InventoryCodeGenerator.generateCategoryCode(categoryIndex);
 
   final String name;
   final int categoryIndex;
@@ -19,9 +17,9 @@ class InventorySubCategory {
     required this.categoryIndex,
     required this.subCategoryIndex,
   }) : code = InventoryCodeGenerator.generateSubcategoryCode(
-          categoryIndex,
-          subCategoryIndex,
-        );
+         categoryIndex,
+         subCategoryIndex,
+       );
 
   final String name;
   final int categoryIndex;
@@ -82,7 +80,7 @@ class InventoryCatalogManager {
   static List<String> subcategoriesFor(String category) {
     final key = _normalize(category);
     if (key.isEmpty) return const [];
-    return [...(_catalog[key] ?? const <String>[])] ;
+    return [...(_catalog[key] ?? const <String>[])];
   }
 
   static void addCategory(String category) {
@@ -166,20 +164,33 @@ class InventoryCodeGenerator {
 
   static String generateCategoryCode(int categoryIndex) {
     _validateIndex('categoryIndex', categoryIndex, 1, 9);
-    return '$categoryIndex' 'XXX';
+    return '$categoryIndex'
+        'XXX';
   }
 
-  static String generateSubcategoryCode(int categoryIndex, int subCategoryIndex) {
+  static String generateSubcategoryCode(
+    int categoryIndex,
+    int subCategoryIndex,
+  ) {
     _validateIndex('categoryIndex', categoryIndex, 1, 9);
     _validateIndex('subCategoryIndex', subCategoryIndex, 1, 9);
-    return '$categoryIndex' '$subCategoryIndex' 'XX';
+    return '$categoryIndex'
+        '$subCategoryIndex'
+        'XX';
   }
 
-  static String generateVariantCode(int categoryIndex, int subCategoryIndex, int variantIndex) {
+  static String generateVariantCode(
+    int categoryIndex,
+    int subCategoryIndex,
+    int variantIndex,
+  ) {
     _validateIndex('categoryIndex', categoryIndex, 1, 9);
     _validateIndex('subCategoryIndex', subCategoryIndex, 1, 9);
     _validateIndex('variantIndex', variantIndex, 1, 9);
-    return '$categoryIndex' '$subCategoryIndex' '$variantIndex' 'X';
+    return '$categoryIndex'
+        '$subCategoryIndex'
+        '$variantIndex'
+        'X';
   }
 
   static String generateItemCode(
@@ -192,7 +203,10 @@ class InventoryCodeGenerator {
     _validateIndex('subCategoryIndex', subCategoryIndex, 1, 9);
     _validateIndex('variantIndex', variantIndex, 1, 9);
     _validateIndex('itemSequence', itemSequence, 0, 9);
-    return '$categoryIndex' '$subCategoryIndex' '$variantIndex' '$itemSequence';
+    return '$categoryIndex'
+        '$subCategoryIndex'
+        '$variantIndex'
+        '$itemSequence';
   }
 
   static String generateAutoCode({
@@ -203,7 +217,12 @@ class InventoryCodeGenerator {
   }) {
     final categoryCode = _categoryShortCode(category);
     final subCategoryCode = _subcategoryShortCode(subCategory);
-    final safeSequence = _sequenceValue(category, subCategory, itemName, itemSequence);
+    final safeSequence = _sequenceValue(
+      category,
+      subCategory,
+      itemName,
+      itemSequence,
+    );
 
     return '$categoryCode-$subCategoryCode-${safeSequence.toString().padLeft(3, '0')}';
   }
@@ -262,7 +281,9 @@ class InventoryCodeGenerator {
       return 'XX';
     }
 
-    return letters.substring(0, letters.length > 2 ? 2 : letters.length).toUpperCase();
+    return letters
+        .substring(0, letters.length > 2 ? 2 : letters.length)
+        .toUpperCase();
   }
 
   static String _subcategoryShortCode(String subCategory) {
@@ -287,7 +308,9 @@ class InventoryCodeGenerator {
       return 'OTH';
     }
 
-    return letters.substring(0, letters.length > 3 ? 3 : letters.length).toUpperCase();
+    return letters
+        .substring(0, letters.length > 3 ? 3 : letters.length)
+        .toUpperCase();
   }
 
   static int resolveCategoryIndex(String category) {
@@ -297,7 +320,8 @@ class InventoryCodeGenerator {
 
   static int resolveSubCategoryIndex(String subCategory) {
     final normalized = subCategory.trim().toLowerCase();
-    return _subcategoryCodes[normalized] ?? _stableIndex(normalized, maxValue: 9);
+    return _subcategoryCodes[normalized] ??
+        _stableIndex(normalized, maxValue: 9);
   }
 
   static int resolveVariantIndex(String itemName) {
@@ -310,7 +334,12 @@ class InventoryCodeGenerator {
     return _stableIndex(normalized, maxValue: 9);
   }
 
-  static int _sequenceValue(String category, String subCategory, String itemName, int itemSequence) {
+  static int _sequenceValue(
+    String category,
+    String subCategory,
+    String itemName,
+    int itemSequence,
+  ) {
     if (itemSequence > 0) {
       return itemSequence.clamp(1, 99);
     }
@@ -319,18 +348,20 @@ class InventoryCodeGenerator {
   }
 
   static int _stableIndex(String value, {required int maxValue}) {
-    final hash = value.isEmpty ? 0 : value.codeUnits.fold<int>(0, (sum, code) => sum + code);
+    final hash = value.isEmpty
+        ? 0
+        : value.codeUnits.fold<int>(0, (sum, code) => sum + code);
     return ((hash % maxValue) + 1).clamp(1, maxValue);
   }
 
-  static void _validateIndex(String name, int value, int minInclusive, int maxInclusive) {
+  static void _validateIndex(
+    String name,
+    int value,
+    int minInclusive,
+    int maxInclusive,
+  ) {
     if (value < minInclusive || value > maxInclusive) {
-      throw RangeError.range(
-        value,
-        minInclusive,
-        maxInclusive,
-        name,
-      );
+      throw RangeError.range(value, minInclusive, maxInclusive, name);
     }
   }
 }

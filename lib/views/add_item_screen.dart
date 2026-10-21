@@ -31,9 +31,7 @@ class _AddItemScreenState extends State<AddItemScreen> {
     final viewModel = context.watch<SalesViewModel>();
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Add Crackers Item'),
-      ),
+      appBar: AppBar(title: const Text('Add Crackers Item')),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(20),
@@ -58,7 +56,9 @@ class _AddItemScreenState extends State<AddItemScreen> {
                 const SizedBox(height: 16),
                 TextFormField(
                   controller: _priceController,
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
                   decoration: const InputDecoration(
                     labelText: 'Unit Price',
                     prefixText: '₹ ',
@@ -82,14 +82,19 @@ class _AddItemScreenState extends State<AddItemScreen> {
                         id: DateTime.now().millisecondsSinceEpoch.toString(),
                         name: _nameController.text.trim(),
                         category: _categoryController.text.trim(),
-                        unitPrice: double.tryParse(_priceController.text.trim()) ?? 0.0,
-                        stockAvailable: int.tryParse(_stockController.text.trim()) ?? 0,
+                        unitPrice:
+                            double.tryParse(_priceController.text.trim()) ??
+                            0.0,
+                        stockAvailable:
+                            int.tryParse(_stockController.text.trim()) ?? 0,
                       );
 
                       viewModel.addCatalogItem(item);
                       if (!mounted) return;
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Item added successfully.')),
+                        const SnackBar(
+                          content: Text('Item added successfully.'),
+                        ),
                       );
                       _nameController.clear();
                       _categoryController.clear();

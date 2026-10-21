@@ -199,7 +199,20 @@ class FirestoreService {
     }
 
     final snapshot = await _userDocument(ownerUid).collection('members').get();
-    return snapshot.docs.map((document) => document.data()).toList();
+    return Future.wait(
+      snapshot.docs.map((document) async {
+        final data = Map<String, dynamic>.from(document.data());
+        if ((data['name'] as String?)?.trim().isNotEmpty == true) return data;
+        try {
+          final profile = await fetchUserProfile(document.id);
+          if (profile != null) {
+            data['name'] = profile['name'];
+            data['phone'] = profile['phone'];
+          }
+        } catch (_) {}
+        return data;
+      }),
+    );
   }
 
   Future<void> revokeWorkspaceMember(String memberUid) async {
@@ -298,6 +311,22 @@ class FirestoreService {
       'createdAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
     await user.updateDisplayName(name);
+    await syncMemberProfile(user.uid, name: name, phone: phone);
+  }
+
+  // Lets the owner see staff names, since profiles are private to each user.
+  Future<void> syncMemberProfile(
+    String uid, {
+    required String name,
+    required String phone,
+  }) async {
+    final ownerUid = _activeWorkspaceId;
+    if (isWorkspaceOwner || ownerUid == null || ownerUid == uid) return;
+    try {
+      await _userDocument(
+        ownerUid,
+      ).collection('members').doc(uid).update({'name': name, 'phone': phone});
+    } catch (_) {}
   }
 
   Future<void> _ensureUserDocument(

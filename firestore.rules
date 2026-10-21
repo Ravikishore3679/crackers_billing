@@ -67,11 +67,19 @@ service cloud.firestore {
             && request.resource.data.role == 'billing'
             && request.resource.data.email == request.auth.token.email.lower()
             && validInvite(request.resource.data.inviteId, userUid));
-        allow update, delete: if isOwner(userUid);
+        allow update: if isOwner(userUid)
+          || (signedIn()
+            && request.auth.uid == memberUid
+            && request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly(['name', 'phone']));
+        allow delete: if isOwner(userUid);
       }
 
       match /profile/{document=**} {
         allow read, write: if signedIn() && request.auth.uid == userUid;
+        allow read: if signedIn()
+          && exists(/databases/$(database)/documents/users/$(userUid))
+          && get(/databases/$(database)/documents/users/$(userUid)).data.get('workspaceOwnerUid', '') == request.auth.uid;
       }
 
       match /{collection}/{document=**} {

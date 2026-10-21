@@ -18,9 +18,7 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   if (kIsWeb) {
-    await GoogleSignIn.instance.initialize(
-      clientId: googleWebClientId,
-    );
+    await GoogleSignIn.instance.initialize(clientId: googleWebClientId);
   } else {
     await GoogleSignIn.instance.initialize(
       clientId: googleIOSClientId,
@@ -37,7 +35,9 @@ Future<void> main() async {
       FlutterErrorDetails(
         exception: error,
         library: 'Firebase initialization',
-        context: ErrorDescription('Firebase could not be initialized with the project config.'),
+        context: ErrorDescription(
+          'Firebase could not be initialized with the project config.',
+        ),
       ),
     );
   }

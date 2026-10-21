@@ -8,6 +8,7 @@ import '../services/inventory_code_generator.dart';
 import '../view_models/sales_view_model.dart';
 import 'expense_screen.dart';
 import 'inventory_screen.dart';
+import 'profile_screen.dart';
 import 'reports_screen.dart';
 import 'sales_screen.dart';
 import 'staff_access_screen.dart';
@@ -75,8 +76,8 @@ class _AppShellState extends State<AppShell> {
   @override
   Widget build(BuildContext context) {
     final currentUser = Firebase.apps.isEmpty
-      ? null
-      : FirebaseAuth.instance.currentUser;
+        ? null
+        : FirebaseAuth.instance.currentUser;
     final initials = _profileInitials(currentUser);
     final isOwner = FirestoreService.instance.isWorkspaceOwner;
     final screens = isOwner
@@ -128,25 +129,33 @@ class _AppShellState extends State<AppShell> {
               ),
             Tooltip(
               message: currentUser?.email ?? 'Signed-in user',
-              child: Padding(
-                padding: const EdgeInsets.only(right: 4),
-                child: CircleAvatar(
-                  radius: 15,
-                  backgroundColor: Theme.of(context).colorScheme.onPrimary,
-                  child: initials.isEmpty
-                      ? Icon(
-                          Icons.person_rounded,
-                          size: 18,
-                          color: Theme.of(context).colorScheme.primary,
-                        )
-                      : Text(
-                          initials,
-                          style: TextStyle(
+              child: InkWell(
+                customBorder: const CircleBorder(),
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const ProfileScreen(),
+                  ),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.only(right: 4),
+                  child: CircleAvatar(
+                    radius: 15,
+                    backgroundColor: Theme.of(context).colorScheme.onPrimary,
+                    child: initials.isEmpty
+                        ? Icon(
+                            Icons.person_rounded,
+                            size: 18,
                             color: Theme.of(context).colorScheme.primary,
-                            fontWeight: FontWeight.w700,
-                            fontSize: 12,
+                          )
+                        : Text(
+                            initials,
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.primary,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 12,
+                            ),
                           ),
-                        ),
+                  ),
                 ),
               ),
             ),

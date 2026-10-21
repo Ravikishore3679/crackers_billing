@@ -63,7 +63,8 @@ class DefaultFirebaseOptions {
     messagingSenderId: '162682850132',
     projectId: 'crackers-billing',
     storageBucket: 'crackers-billing.firebasestorage.app',
-    iosClientId: '162682850132-g5600hb6dshqullif2i200oki9k74nus.apps.googleusercontent.com',
+    iosClientId:
+        '162682850132-g5600hb6dshqullif2i200oki9k74nus.apps.googleusercontent.com',
     iosBundleId: 'com.example.crackersBilling',
   );
   static const FirebaseOptions macos = FirebaseOptions(

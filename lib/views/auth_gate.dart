@@ -83,6 +83,13 @@ class _ProfileGateState extends State<_ProfileGate> {
       );
       final name = (profile?['name'] as String?)?.trim() ?? '';
       final phone = (profile?['phone'] as String?)?.trim() ?? '';
+      if (name.isNotEmpty) {
+        await FirestoreService.instance.syncMemberProfile(
+          widget.user.uid,
+          name: name,
+          phone: phone,
+        );
+      }
       return name.isNotEmpty && phone.isNotEmpty;
     } catch (_) {
       return true;

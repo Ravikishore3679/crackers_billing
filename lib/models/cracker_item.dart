@@ -8,9 +8,9 @@ class CrackerItem {
     required this.stockAvailable,
     this.taxRate = 0.18,
     this.itemCode,
-  })  : assert(unitPrice >= 0, 'unitPrice must be non-negative'),
-        assert(stockAvailable >= 0, 'stockAvailable must be non-negative'),
-        assert(taxRate >= 0, 'taxRate must be non-negative');
+  }) : assert(unitPrice >= 0, 'unitPrice must be non-negative'),
+       assert(stockAvailable >= 0, 'stockAvailable must be non-negative'),
+       assert(taxRate >= 0, 'taxRate must be non-negative');
 
   final String id;
   final String name;
