@@ -17,6 +17,35 @@ class ReportsScreen extends StatefulWidget {
 
 class _ReportsScreenState extends State<ReportsScreen> {
   bool _pendingOnly = false;
+  DateTime _fromDate = DateUtils.dateOnly(DateTime.now());
+  DateTime _toDate = DateUtils.dateOnly(DateTime.now());
+
+  bool get _isToday =>
+      DateUtils.isSameDay(_fromDate, DateTime.now()) &&
+      DateUtils.isSameDay(_toDate, DateTime.now());
+
+  String _fmt(DateTime d) => '${d.day}/${d.month}/${d.year}';
+
+  Future<void> _pickDate({required bool isFrom}) async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: isFrom ? _fromDate : _toDate,
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now(),
+      helpText: isFrom ? 'From date' : 'To date',
+    );
+    if (picked == null) return;
+    final date = DateUtils.dateOnly(picked);
+    setState(() {
+      if (isFrom) {
+        _fromDate = date;
+        if (_toDate.isBefore(date)) _toDate = date;
+      } else {
+        _toDate = date;
+        if (_fromDate.isAfter(date)) _fromDate = date;
+      }
+    });
+  }
 
   void _showRevenueBreakdown(List<Invoice> invoices) {
     final cash = invoices.fold(0.0, (t, i) => t + i.cashPaid);
@@ -155,7 +184,19 @@ class _ReportsScreenState extends State<ReportsScreen> {
   Widget build(BuildContext context) {
     final viewModel = context.watch<SalesViewModel>();
     final isOwner = FirestoreService.instance.isWorkspaceOwner;
-    final allInvoices = viewModel.invoiceHistory;
+    final allInvoices = viewModel.invoiceHistory.where((i) {
+      final d = DateUtils.dateOnly(i.date);
+      return !d.isBefore(_fromDate) && !d.isAfter(_toDate);
+    }).toList();
+    final revenue = allInvoices.fold(0.0, (t, i) => t + i.netTotal);
+    final units = allInvoices.fold(
+      0,
+      (t, i) => t + i.lineItems.fold(0, (s, l) => s + l.quantity),
+    );
+    final expense = viewModel.expenseBetween(
+      _fromDate,
+      DateUtils.addDaysToDate(_toDate, 1),
+    );
     final pendingCount = allInvoices.where((i) => !i.isFullyPaid).length;
     final invoices = _pendingOnly
         ? allInvoices.where((i) => !i.isFullyPaid).toList()
@@ -175,7 +216,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                     Expanded(
                       child: _FolderSummaryCard(
                         title: 'Revenue',
-                        value: '₹${viewModel.totalRevenue.toStringAsFixed(2)}',
+                        value: '₹${revenue.toStringAsFixed(2)}',
                         color: Colors.green,
                         icon: Icons.folder_rounded,
                         onTap: () => _showRevenueBreakdown(allInvoices),
@@ -185,8 +226,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                     Expanded(
                       child: _FolderSummaryCard(
                         title: 'Expense',
-                        value:
-                            '₹${viewModel.totalExpenditure.toStringAsFixed(2)}',
+                        value: '₹${expense.toStringAsFixed(2)}',
                         color: Colors.red,
                         icon: Icons.folder_rounded,
                       ),
@@ -194,6 +234,43 @@ class _ReportsScreenState extends State<ReportsScreen> {
                   ],
                 ),
               if (isOwner) const SizedBox(height: 10),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () => _pickDate(isFrom: true),
+                      icon: const Icon(Icons.calendar_month_rounded, size: 16),
+                      label: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text('From: ${_fmt(_fromDate)}'),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () => _pickDate(isFrom: false),
+                      icon: const Icon(Icons.calendar_month_rounded, size: 16),
+                      label: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text('To: ${_fmt(_toDate)}'),
+                      ),
+                    ),
+                  ),
+                  if (!_isToday)
+                    IconButton(
+                      tooltip: 'Reset to today',
+                      visualDensity: VisualDensity.compact,
+                      onPressed: () => setState(() {
+                        _fromDate = _toDate = DateUtils.dateOnly(
+                          DateTime.now(),
+                        );
+                      }),
+                      icon: const Icon(Icons.today_rounded),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 8),
               Align(
                 alignment: Alignment.centerLeft,
                 child: Chip(
@@ -202,7 +279,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                     Icons.confirmation_number_rounded,
                     size: 18,
                   ),
-                  label: Text('Units sold: ${viewModel.totalUnitsSold}'),
+                  label: Text('Units sold: $units'),
                 ),
               ),
               const SizedBox(height: 14),
@@ -235,7 +312,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                           child: Text(
                             _pendingOnly
                                 ? 'No pending payments.'
-                                : 'No invoices yet. Generate one from the sales screen.',
+                                : 'No invoices for the selected dates.',
                           ),
                         ),
                       )

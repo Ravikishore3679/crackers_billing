@@ -67,6 +67,9 @@ class SalesViewModel extends ChangeNotifier {
   final List<InvoiceLineItem> _cart = [];
   final List<HeldCartDraft> _heldCarts = [];
   final List<Invoice> _invoices = [];
+  final Map<String, Invoice> _pendingPayments = {};
+  final List<({DateTime? date, double amount})> _expenseEntries = [];
+  final Map<String, Future<void>> _invoiceSaves = {};
   Invoice? _lastGeneratedInvoice;
   String? _errorMessage;
   double _discountPercent = 0.0;
@@ -273,9 +276,28 @@ class SalesViewModel extends ChangeNotifier {
         return;
       }
 
+      // Keep payments that are still being synced so a stale reload
+      // does not revert them in the reports.
       _invoices
         ..clear()
-        ..addAll(invoices);
+        ..addAll(
+          invoices.map((i) {
+            final pending = _pendingPayments[i.id];
+            if (pending == null) return i;
+            return i
+              ..cashPaid = pending.cashPaid
+              ..upiPaid = pending.upiPaid
+              ..cardPaid = pending.cardPaid
+              ..paidAt = pending.paidAt;
+          }),
+        );
+
+      final lastId = _lastGeneratedInvoice?.id;
+      if (lastId != null) {
+        for (final i in _invoices) {
+          if (i.id == lastId) _lastGeneratedInvoice = i;
+        }
+      }
 
       final nextGuestSequence = _nextGuestSequenceFromInvoices(invoices);
       if (nextGuestSequence > _guestCustomerSequence) {
@@ -320,6 +342,20 @@ class SalesViewModel extends ChangeNotifier {
         return;
       }
 
+      _expenseEntries
+        ..clear()
+        ..addAll(
+          entries.map((entry) {
+            final raw = entry['date'];
+            final date = raw is num
+                ? DateTime.fromMillisecondsSinceEpoch(raw.toInt())
+                : DateTime.tryParse('$raw');
+            return (
+              date: date,
+              amount: (entry['amount'] as num? ?? 0).toDouble(),
+            );
+          }),
+        );
       totalExpenditure = entries.fold<double>(
         0.0,
         (sum, entry) => sum + (entry['amount'] as num? ?? 0).toDouble(),
@@ -328,6 +364,23 @@ class SalesViewModel extends ChangeNotifier {
       totalExpenditure = 0.0;
     }
 
+    notifyListeners();
+  }
+
+  double expenseBetween(DateTime start, DateTime end) {
+    if (_expenseEntries.isEmpty) return totalExpenditure;
+    return _expenseEntries
+        .where(
+          (e) =>
+              e.date != null &&
+              !e.date!.isBefore(start) &&
+              e.date!.isBefore(end),
+        )
+        .fold(0.0, (sum, e) => sum + e.amount);
+  }
+
+  void startNewSale() {
+    _lastGeneratedInvoice = null;
     notifyListeners();
   }
 
@@ -619,10 +672,12 @@ class SalesViewModel extends ChangeNotifier {
     notifyListeners();
 
     try {
-      await FirestoreService.instance.saveInvoice(
+      final save = FirestoreService.instance.saveInvoice(
         invoice,
         userId: _currentUserId,
       );
+      _invoiceSaves[invoice.id] = save.catchError((_) {});
+      await save;
 
       for (final item in updatedItems) {
         await FirestoreService.instance.saveInventoryItem(
@@ -671,17 +726,38 @@ class SalesViewModel extends ChangeNotifier {
       ..upiPaid = upi
       ..cardPaid = card
       ..paidAt = DateTime.now();
+
+    // A history reload may have replaced the list with new objects, so make
+    // sure the invoice shown in reports carries the payment too.
+    for (final listed in _invoices) {
+      if (listed.id == invoice.id && !identical(listed, invoice)) {
+        listed
+          ..cashPaid = cash
+          ..upiPaid = upi
+          ..cardPaid = card
+          ..paidAt = invoice.paidAt;
+      }
+    }
     notifyListeners();
 
-    try {
-      await FirestoreService.instance.saveInvoicePayment(
-        invoice,
-        userId: _currentUserId,
-      );
-    } catch (error) {
-      _errorMessage = 'Payment saved locally but cloud sync failed: $error';
-      notifyListeners();
-    }
+    _pendingPayments[invoice.id] = invoice;
+    // Wait for the invoice document so it cannot overwrite the payment.
+    (_invoiceSaves[invoice.id] ?? Future<void>.value())
+        .then(
+          (_) => FirestoreService.instance.saveInvoicePayment(
+            invoice,
+            userId: _currentUserId,
+          ),
+        )
+        .catchError((Object error) {
+          _errorMessage = 'Payment saved locally but cloud sync failed: $error';
+          notifyListeners();
+        })
+        .whenComplete(() {
+          if (identical(_pendingPayments[invoice.id], invoice)) {
+            _pendingPayments.remove(invoice.id);
+          }
+        });
   }
 
   @override

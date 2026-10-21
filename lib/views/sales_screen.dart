@@ -1130,6 +1130,10 @@ class _CartPanel extends StatelessWidget {
                         key: ValueKey(viewModel.lastGeneratedInvoice!.id),
                         invoice: viewModel.lastGeneratedInvoice!,
                         viewModel: viewModel,
+                        onSaved: () {
+                          viewModel.startNewSale();
+                          Navigator.of(context).pop();
+                        },
                       ),
                       const SizedBox(height: 12),
                       Wrap(
