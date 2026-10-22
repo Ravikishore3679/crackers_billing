@@ -2,11 +2,10 @@ import 'dart:convert';
 import 'dart:async';
 import 'dart:io';
 
-final RegExp _versionPattern = RegExp(r'^version:\s*(.+)\s*$');
+import 'deploy_version.dart';
 
 const String _defaultAppId = '1:162682850132:android:4a8c1c35f11684d21c16c1';
 const String _defaultFirebaseGroups = 'crackers2026';
-const String _defaultReleaseNotes = 'arm64 build';
 
 class DeployConfig {
   DeployConfig({
@@ -28,14 +27,28 @@ class DeployConfig {
 
 Future<void> main(List<String> arguments) async {
   final config = _parseArguments(arguments, dotenv: _readDotEnvFile());
-  final appVersion = _readAppVersion();
-
-  stdout.writeln('Deploying version $appVersion');
 
   if (!config.buildOnly) {
     _requireTool('flutter');
     _requireTool('firebase');
   }
+
+  final pubspecFile = File('pubspec.yaml');
+  if (!pubspecFile.existsSync()) {
+    throw StateError('Run this script from the project root containing pubspec.yaml.');
+  }
+
+  if (!config.buildOnly) {
+    final updatedPubspec = bumpPubspecBuildNumber(
+      pubspecFile.readAsStringSync(),
+    );
+    pubspecFile.writeAsStringSync(updatedPubspec);
+  }
+  final appVersion = AppVersion.fromPubspec(
+    pubspecFile.readAsStringSync(),
+  ).value;
+
+  stdout.writeln('Deploying version $appVersion');
 
   stdout.writeln(
     'Building Android arm64 release APK for version $appVersion...',
@@ -91,28 +104,6 @@ Future<void> main(List<String> arguments) async {
 
   await _run('firebase', firebaseArgs);
   stdout.writeln('Deployment for version $appVersion finished successfully.');
-}
-
-String _readAppVersion() {
-  final pubspecFile = File('pubspec.yaml');
-  if (!pubspecFile.existsSync()) {
-    return 'unknown';
-  }
-
-  final match = _versionPattern.firstMatch(
-    pubspecFile
-        .readAsStringSync()
-        .split('\n')
-        .firstWhere(
-          (line) => line.trimLeft().startsWith('version:'),
-          orElse: () => '',
-        ),
-  );
-  if (match == null) {
-    return 'unknown';
-  }
-
-  return match.group(1)!.trim();
 }
 
 DeployConfig _parseArguments(
@@ -171,11 +162,16 @@ DeployConfig _parseArguments(
       values['release-notes'] ??
       Platform.environment['RELEASE_NOTES'] ??
       dotenv['RELEASE_NOTES'] ??
-      _defaultReleaseNotes;
+      '';
 
   if (appId.isEmpty && !buildOnly) {
     throw ArgumentError(
       'Missing Firebase app id. Pass --app-id or set FIREBASE_APP_ID.',
+    );
+  }
+  if (!buildOnly && releaseNotes.trim().isEmpty) {
+    throw ArgumentError(
+      'Release notes are required. Pass --release-notes or set RELEASE_NOTES.',
     );
   }
 
@@ -185,7 +181,7 @@ DeployConfig _parseArguments(
     apkPath:
         values['apk-path'] ??
         'build/app/outputs/flutter-apk/app-arm64-v8a-release.apk',
-    releaseNotes: releaseNotes,
+    releaseNotes: releaseNotes.trim(),
     groups: groups,
     buildOnly: buildOnly,
   );
