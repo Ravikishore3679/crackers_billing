@@ -4,10 +4,9 @@ import 'package:provider/provider.dart';
 
 import '../models/invoice.dart';
 import '../services/firestore_service.dart';
-import '../services/invoice_email_service.dart';
 import '../services/invoice_pdf.dart';
 import '../view_models/sales_view_model.dart';
-import 'payment_section.dart';
+import 'invoice_detail_screen.dart';
 
 class ReportsScreen extends StatefulWidget {
   const ReportsScreen({super.key});
@@ -132,45 +131,6 @@ class _ReportsScreenState extends State<ReportsScreen> {
     );
   }
 
-  void _openPayment(SalesViewModel viewModel, Invoice invoice) {
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
-      builder: (sheetContext) => Padding(
-        padding: EdgeInsets.only(
-          left: 16,
-          right: 16,
-          bottom: MediaQuery.of(sheetContext).viewInsets.bottom + 16,
-        ),
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                '${invoice.customerName.isEmpty ? 'Walk-in Customer' : invoice.customerName} • ${invoice.id}',
-                style: const TextStyle(fontWeight: FontWeight.w700),
-              ),
-              Text(invoice.formattedDateTime),
-              if (invoice.createdBy.isNotEmpty)
-                Text('Billed by ${invoice.createdBy}'),
-              if (invoice.paymentMarkedBy.isNotEmpty)
-                Text('Payment marked by ${invoice.paymentMarkedBy}'),
-              const SizedBox(height: 10),
-              PaymentSection(
-                key: ValueKey(invoice.id),
-                invoice: invoice,
-                viewModel: viewModel,
-                onSaved: () => Navigator.of(sheetContext).pop(),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
   Future<void> _printInvoice(Invoice invoice) async {
     try {
       final pdfBytes = await buildInvoicePdf(invoice);
@@ -180,27 +140,6 @@ class _ReportsScreenState extends State<ReportsScreen> {
       );
     } catch (error) {
       debugPrint('Failed to print invoice: $error');
-    }
-  }
-
-  Future<void> _emailInvoice(Invoice invoice) async {
-    try {
-      final composerOpened = await composeInvoiceEmail(invoice);
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            composerOpened
-                ? 'Email composer opened.'
-                : 'Invoice PDF ready to attach to an email.',
-          ),
-        ),
-      );
-    } catch (error) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Could not open email: $error')));
     }
   }
 
@@ -344,84 +283,75 @@ class _ReportsScreenState extends State<ReportsScreen> {
                           return Card(
                             margin: const EdgeInsets.only(bottom: 12),
                             child: ListTile(
-                              onTap: () => _openPayment(viewModel, invoice),
-                              title: Text(
-                                invoice.customerName.isEmpty
-                                    ? 'Walk-in Customer'
-                                    : invoice.customerName,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w600,
+                              onTap: () => Navigator.of(context).push(
+                                MaterialPageRoute<void>(
+                                  builder: (_) => InvoiceDetailScreen(
+                                    invoice: invoice,
+                                    viewModel: viewModel,
+                                  ),
                                 ),
                               ),
-                              subtitle: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    '${invoice.formattedDateTime} • ${invoice.lineItems.length} items',
-                                  ),
-                                  const SizedBox(height: 6),
-                                  if (invoice.createdBy.isNotEmpty)
-                                    Text('Billed by ${invoice.createdBy}'),
-                                  if (invoice.customerEmail.isNotEmpty)
-                                    Text('Email: ${invoice.customerEmail}'),
-                                  if (invoice.paymentMarkedBy.isNotEmpty)
-                                    Text(
-                                      'Payment marked by ${invoice.paymentMarkedBy}',
-                                    ),
-                                  Text(
-                                    'Invoice: ${invoice.id}',
-                                    style: const TextStyle(fontSize: 12),
-                                  ),
-                                  Text(
-                                    invoice.paymentBreakdown.isEmpty
-                                        ? invoice.paymentStatusLabel
-                                        : '${invoice.paymentStatusLabel} • ${invoice.paymentBreakdown}',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w700,
-                                      color: invoice.isFullyPaid
-                                          ? Colors.green.shade800
-                                          : Colors.orange.shade800,
-                                    ),
-                                  ),
-                                ],
+                              leading: Tooltip(
+                                message: invoice.isFullyPaid
+                                    ? 'Paid'
+                                    : 'Payment pending',
+                                child: Icon(
+                                  invoice.isFullyPaid
+                                      ? Icons.check_circle_rounded
+                                      : Icons.pending_actions_rounded,
+                                  color: invoice.isFullyPaid
+                                      ? Colors.green.shade700
+                                      : Colors.orange.shade800,
+                                ),
                               ),
-                              trailing: Row(
-                                mainAxisSize: MainAxisSize.min,
+                              title: Row(
                                 children: [
+                                  Expanded(
+                                    child: Text(
+                                      invoice.customerName.isEmpty
+                                          ? 'Walk-in Customer'
+                                          : invoice.customerName,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 10),
                                   Text(
-                                    '₹${invoice.netTotal.toStringAsFixed(2)}',
+                                    '₹${invoice.roundedNetTotal.toStringAsFixed(2)}',
                                     style: const TextStyle(
                                       fontWeight: FontWeight.bold,
                                     ),
                                   ),
-                                  const SizedBox(width: 8),
-                                  IconButton(
-                                    tooltip: invoice.isFullyPaid
-                                        ? 'View payment'
-                                        : 'Record payment',
-                                    onPressed: () =>
-                                        _openPayment(viewModel, invoice),
-                                    icon: Icon(
-                                      invoice.isFullyPaid
-                                          ? Icons.check_circle_rounded
-                                          : Icons.payments_rounded,
-                                      color: invoice.isFullyPaid
-                                          ? Colors.green
-                                          : Colors.orange.shade800,
+                                ],
+                              ),
+                              subtitle: Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      '${invoice.id}  •  Billed by ${invoice.createdBy.isEmpty ? '—' : invoice.createdBy}',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: Theme.of(
+                                        context,
+                                      ).textTheme.bodySmall,
                                     ),
                                   ),
                                   IconButton(
                                     tooltip: 'Print invoice',
+                                    visualDensity: VisualDensity.compact,
+                                    constraints: const BoxConstraints.tightFor(
+                                      width: 32,
+                                      height: 32,
+                                    ),
+                                    padding: EdgeInsets.zero,
                                     onPressed: () => _printInvoice(invoice),
-                                    icon: const Icon(Icons.print_rounded),
-                                  ),
-                                  IconButton(
-                                    tooltip: 'Email invoice',
-                                    onPressed: invoice.customerEmail.isEmpty
-                                        ? null
-                                        : () => _emailInvoice(invoice),
-                                    icon: const Icon(Icons.email_outlined),
+                                    icon: const Icon(
+                                      Icons.print_rounded,
+                                      size: 18,
+                                    ),
                                   ),
                                 ],
                               ),

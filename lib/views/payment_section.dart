@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../models/invoice.dart';
 import '../view_models/sales_view_model.dart';
@@ -23,6 +24,8 @@ class PaymentSectionState extends State<PaymentSection> {
   late final TextEditingController _cash;
   late final TextEditingController _upi;
   late final TextEditingController _card;
+  late final TextEditingController _discountValue;
+  late final TextEditingController _discountPercent;
   bool _saving = false;
 
   @override
@@ -32,6 +35,10 @@ class PaymentSectionState extends State<PaymentSection> {
     _cash = TextEditingController(text: initial(widget.invoice.cashPaid));
     _upi = TextEditingController(text: initial(widget.invoice.upiPaid));
     _card = TextEditingController(text: initial(widget.invoice.cardPaid));
+    _discountValue = TextEditingController(
+      text: initial(widget.invoice.discountAmount),
+    );
+    _discountPercent = TextEditingController();
   }
 
   @override
@@ -39,6 +46,8 @@ class PaymentSectionState extends State<PaymentSection> {
     _cash.dispose();
     _upi.dispose();
     _card.dispose();
+    _discountValue.dispose();
+    _discountPercent.dispose();
     super.dispose();
   }
 
@@ -46,6 +55,25 @@ class PaymentSectionState extends State<PaymentSection> {
       double.tryParse(controller.text.trim()) ?? 0.0;
 
   double get _entered => _value(_cash) + _value(_upi) + _value(_card);
+
+  void _applyDiscountValue(String value) {
+    _discountPercent.clear();
+    widget.viewModel.updateInvoiceDiscount(
+      widget.invoice,
+      double.tryParse(value.trim()) ?? 0.0,
+    );
+    setState(() {});
+  }
+
+  void _applyDiscountPercent(String value) {
+    _discountValue.clear();
+    final percent = (int.tryParse(value.trim()) ?? 0).clamp(0, 100);
+    widget.viewModel.updateInvoiceDiscount(
+      widget.invoice,
+      widget.invoice.grossTotal * percent / 100.0,
+    );
+    setState(() {});
+  }
 
   void _fillRemaining(TextEditingController controller) {
     final others = _entered - _value(controller);
@@ -103,9 +131,14 @@ class PaymentSectionState extends State<PaymentSection> {
     }
   }
 
-  Widget _field(String label, TextEditingController controller) {
+  Widget _field(
+    String label,
+    TextEditingController controller, {
+    required bool enabled,
+  }) {
     return TextField(
       controller: controller,
+      enabled: enabled,
       keyboardType: const TextInputType.numberWithOptions(decimal: true),
       onChanged: (_) => setState(() {}),
       decoration: InputDecoration(
@@ -113,7 +146,7 @@ class PaymentSectionState extends State<PaymentSection> {
         isDense: true,
         prefixText: '₹ ',
         suffixIcon: TextButton(
-          onPressed: () => _fillRemaining(controller),
+          onPressed: enabled ? () => _fillRemaining(controller) : null,
           child: const Text('Full'),
         ),
       ),
@@ -127,6 +160,7 @@ class PaymentSectionState extends State<PaymentSection> {
     final entered = _entered;
     final balance = payable - entered;
     final recorded = invoice.paymentRecorded;
+    final locked = invoice.isFullyPaid;
     final statusColor = !recorded
         ? Colors.orange.shade800
         : invoice.isFullyPaid
@@ -165,11 +199,51 @@ class PaymentSectionState extends State<PaymentSection> {
           ),
           Text('Amount to collect: ₹${payable.toStringAsFixed(2)}'),
           const SizedBox(height: 10),
-          _field('Cash', _cash),
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _discountValue,
+                  enabled: !recorded,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  decoration: const InputDecoration(
+                    labelText: 'Discount value',
+                    isDense: true,
+                    prefixText: '₹ ',
+                    border: OutlineInputBorder(),
+                  ),
+                  onChanged: _applyDiscountValue,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: TextField(
+                  controller: _discountPercent,
+                  enabled: !recorded,
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [
+                    FilteringTextInputFormatter.digitsOnly,
+                    LengthLimitingTextInputFormatter(3),
+                  ],
+                  decoration: const InputDecoration(
+                    labelText: 'Discount percent',
+                    isDense: true,
+                    suffixText: '%',
+                    border: OutlineInputBorder(),
+                  ),
+                  onChanged: _applyDiscountPercent,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          _field('Cash', _cash, enabled: !locked),
           const SizedBox(height: 8),
-          _field('UPI', _upi),
+          _field('UPI', _upi, enabled: !locked),
           const SizedBox(height: 8),
-          _field('Card', _card),
+          _field('Card', _card, enabled: !locked),
           const SizedBox(height: 8),
           Text(
             balance > 0.005
@@ -185,11 +259,21 @@ class PaymentSectionState extends State<PaymentSection> {
             ),
           ),
           const SizedBox(height: 10),
-          FilledButton.icon(
-            onPressed: _saving || entered <= 0 ? null : _save,
-            icon: const Icon(Icons.payments_rounded),
-            label: Text(recorded ? 'Update Payment' : 'Confirm Payment'),
-          ),
+          if (locked)
+            Text(
+              'Payment completed. This bill can no longer be edited.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontWeight: FontWeight.w700,
+                color: Colors.green.shade800,
+              ),
+            )
+          else
+            FilledButton.icon(
+              onPressed: _saving || entered <= 0 ? null : _save,
+              icon: const Icon(Icons.payments_rounded),
+              label: Text(recorded ? 'Update Payment' : 'Confirm Payment'),
+            ),
         ],
       ),
     );

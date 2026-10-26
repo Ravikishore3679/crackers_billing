@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:printing/printing.dart';
 import 'package:provider/provider.dart';
 
@@ -703,6 +704,59 @@ class _CartPanel extends StatelessWidget {
     }
   }
 
+  Future<void> _showPaymentReceipt(
+    BuildContext context,
+    Invoice invoice,
+  ) async {
+    final receiptKey = GlobalKey();
+    final shouldPrint = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Invoice'),
+        content: SizedBox(
+          width: 420,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.sizeOf(dialogContext).height * 0.6,
+            ),
+            child: SingleChildScrollView(
+              child: InvoiceReceiptCard(
+                invoice: invoice,
+                boundaryKey: receiptKey,
+              ),
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Close'),
+          ),
+          OutlinedButton.icon(
+            onPressed: () =>
+                shareInvoiceImage(dialogContext, receiptKey, invoice),
+            icon: const Icon(Icons.image_rounded),
+            label: const Text('Share image'),
+          ),
+          FilledButton.icon(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            icon: const Icon(Icons.print_rounded),
+            label: const Text('Print'),
+          ),
+        ],
+      ),
+    );
+
+    if (!context.mounted || shouldPrint == null) return;
+    if (shouldPrint) {
+      await _printInvoice(invoice);
+    }
+    if (!context.mounted) return;
+    viewModel.startNewSale();
+    Navigator.of(context).pop();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -755,7 +809,7 @@ class _CartPanel extends StatelessWidget {
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
-                                  '${draft.totalQuantity} items • ₹${draft.grossTotal.toStringAsFixed(2)} • ${draft.discountValue > 0 ? '₹${draft.discountValue.toStringAsFixed(2)}' : '${draft.discountPercent.toStringAsFixed(2)}%'} discount',
+                                  '${draft.totalQuantity} items • ₹${draft.grossTotal.toStringAsFixed(2)} • ${draft.discountValue > 0 ? '₹${draft.discountValue.toStringAsFixed(2)}' : '${draft.discountPercent.toStringAsFixed(0)}%'} discount',
                                   style: TextStyle(color: Colors.grey.shade700),
                                 ),
                                 const SizedBox(height: 8),
@@ -828,19 +882,6 @@ class _CartPanel extends StatelessWidget {
                       decoration: const InputDecoration(
                         labelText: 'Customer Email',
                         border: OutlineInputBorder(),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: viewModel.notesController,
-                      minLines: 2,
-                      maxLines: 4,
-                      textCapitalization: TextCapitalization.sentences,
-                      decoration: const InputDecoration(
-                        labelText: 'Notes',
-                        hintText: 'Optional note for this bill',
-                        border: OutlineInputBorder(),
-                        alignLabelWithHint: true,
                       ),
                     ),
                   ],
@@ -1074,9 +1115,11 @@ class _CartPanel extends StatelessWidget {
                         Expanded(
                           child: TextField(
                             controller: viewModel.discountController,
-                            keyboardType: const TextInputType.numberWithOptions(
-                              decimal: true,
-                            ),
+                            keyboardType: TextInputType.number,
+                            inputFormatters: [
+                              FilteringTextInputFormatter.digitsOnly,
+                              LengthLimitingTextInputFormatter(3),
+                            ],
                             textAlign: TextAlign.right,
                             decoration: const InputDecoration(
                               labelText: 'Discount percent',
@@ -1085,9 +1128,9 @@ class _CartPanel extends StatelessWidget {
                               hintText: '0',
                               suffixText: '%',
                             ),
-                            onChanged: (value) =>
-                                viewModel.applyDiscountPercent(
-                                  double.tryParse(value) ?? 0.0,
+                            onChanged: (value) => viewModel
+                                .applyDiscountPercent(
+                                  (int.tryParse(value) ?? 0).toDouble(),
                                 ),
                           ),
                         ),
@@ -1103,7 +1146,7 @@ class _CartPanel extends StatelessWidget {
                       children: [
                         const Text('Discount'),
                         Text(
-                          '${viewModel.discountValue > 0 ? '₹${viewModel.discountValue.toStringAsFixed(2)}' : '${viewModel.discountPercent.toStringAsFixed(2)}%'} (₹${viewModel.discountAmount.toStringAsFixed(2)})',
+                          '${viewModel.discountValue > 0 ? '₹${viewModel.discountValue.toStringAsFixed(2)}' : '${viewModel.discountPercent.toStringAsFixed(0)}%'} (₹${viewModel.discountAmount.toStringAsFixed(2)})',
                           style: const TextStyle(fontWeight: FontWeight.w600),
                         ),
                       ],
@@ -1185,16 +1228,6 @@ class _CartPanel extends StatelessWidget {
                         boundaryKey: _billKey,
                       ),
                       const SizedBox(height: 12),
-                      PaymentSection(
-                        key: ValueKey(viewModel.lastGeneratedInvoice!.id),
-                        invoice: viewModel.lastGeneratedInvoice!,
-                        viewModel: viewModel,
-                        onSaved: () {
-                          viewModel.startNewSale();
-                          Navigator.of(context).pop();
-                        },
-                      ),
-                      const SizedBox(height: 12),
                       Wrap(
                         spacing: 10,
                         runSpacing: 10,
@@ -1239,6 +1272,16 @@ class _CartPanel extends StatelessWidget {
                             ),
                           ),
                         ],
+                      ),
+                      const SizedBox(height: 12),
+                      PaymentSection(
+                        key: ValueKey(viewModel.lastGeneratedInvoice!.id),
+                        invoice: viewModel.lastGeneratedInvoice!,
+                        viewModel: viewModel,
+                        onSaved: () => _showPaymentReceipt(
+                          context,
+                          viewModel.lastGeneratedInvoice!,
+                        ),
                       ),
                     ],
                   ),

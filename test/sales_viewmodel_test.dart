@@ -92,6 +92,50 @@ void main() {
       expect(invoice.invoiceSummaryText, isNot(contains('GST:')));
     });
 
+    test('discount can be updated after invoice generation', () async {
+      final item = CrackerItem(
+        id: 'payment-discount-item',
+        name: 'Payment Discount Item',
+        category: 'Sparklers',
+        unitPrice: 100,
+        stockAvailable: 1,
+      );
+      final viewModel = SalesViewModel(catalog: [item]);
+      viewModel.addToCart(item);
+      final invoice = await viewModel.checkout();
+
+      viewModel.updateInvoiceDiscount(invoice, 25);
+
+      expect(invoice.discountAmount, 25);
+      expect(invoice.netTotal, 75);
+      expect(invoice.roundedNetTotal, 70);
+    });
+
+    test('fully paid invoice rejects payment and discount edits', () async {
+      final item = CrackerItem(
+        id: 'locked-item',
+        name: 'Locked Item',
+        category: 'Sparklers',
+        unitPrice: 100,
+        stockAvailable: 1,
+      );
+      final viewModel = SalesViewModel(catalog: [item]);
+      viewModel.addToCart(item);
+      final invoice = await viewModel.checkout();
+
+      await viewModel.recordPayment(invoice, cash: 100, upi: 0, card: 0);
+
+      expect(invoice.isFullyPaid, isTrue);
+      expect(
+        () => viewModel.recordPayment(invoice, cash: 50, upi: 0, card: 0),
+        throwsStateError,
+      );
+      expect(
+        () => viewModel.updateInvoiceDiscount(invoice, 10),
+        throwsStateError,
+      );
+    });
+
     test('rounds bill total down to the previous ten', () {
       final item = CrackerItem(
         id: 'round-down-item',

@@ -136,6 +136,7 @@ void main() {
       ),
     );
     viewModel.customerEmailController.text = 'customer@example.com';
+    viewModel.notesController.text = 'Deliver after 5 PM';
     viewModel.addToCart(viewModel.catalog.first);
     await viewModel.checkout();
 
@@ -148,9 +149,17 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byTooltip('Print invoice'), findsOneWidget);
-    expect(find.byTooltip('Email invoice'), findsOneWidget);
-    expect(find.textContaining('Invoice:'), findsOneWidget);
+    expect(find.byTooltip('Email invoice'), findsNothing);
+    expect(find.textContaining('INV-'), findsOneWidget);
+    expect(find.textContaining('Deliver after 5 PM'), findsNothing);
     expect(find.text('Total bills generated: 1'), findsOneWidget);
+
+    await tester.tap(find.textContaining('INV-'));
+    await tester.pumpAndSettle();
+    expect(find.text('Note: Deliver after 5 PM'), findsOneWidget);
+    expect(find.text('Share image'), findsOneWidget);
+    expect(find.text('Print'), findsOneWidget);
+    expect(find.text('Email'), findsOneWidget);
   });
 
   testWidgets('reports screen shows total expenditure', (
@@ -208,6 +217,65 @@ void main() {
     await tester.enterText(percentField, '10');
     expect(viewModel.discountAmount, 10);
     expect(viewModel.discountValue, 0);
+  });
+
+  testWidgets('cart stays open until payment completion is acknowledged', (
+    WidgetTester tester,
+  ) async {
+    final viewModel = SalesViewModel(catalog: const []);
+    addTearDown(viewModel.dispose);
+    await Future<void>.delayed(Duration.zero);
+    viewModel.addCatalogItem(
+      CrackerItem(
+        id: 'payment-confirm-item',
+        name: 'Payment Confirmation Item',
+        category: 'Sparklers',
+        unitPrice: 20,
+        stockAvailable: 1,
+      ),
+    );
+    viewModel.addToCart(viewModel.catalog.single);
+    await viewModel.checkout();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: const Text('Sales screen'),
+            floatingActionButton: FloatingActionButton(
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => CartScreen(viewModel: viewModel),
+                ),
+              ),
+              child: const Icon(Icons.shopping_cart),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.byType(FloatingActionButton));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is TextField && widget.decoration?.labelText == 'Cash',
+      ),
+      '20',
+    );
+    await tester.tap(find.text('Confirm Payment'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Cart'), findsOneWidget);
+    expect(find.text('Sales screen'), findsNothing);
+    expect(find.text('Invoice'), findsOneWidget);
+    expect(find.text('Print'), findsOneWidget);
+    expect(find.text('Share'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Close'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Sales screen'), findsOneWidget);
   });
 
   testWidgets('sales screen renders the catalog and app header', (

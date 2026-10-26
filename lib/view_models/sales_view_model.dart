@@ -51,7 +51,7 @@ class SalesViewModel extends ChangeNotifier {
 
   SalesViewModel({List<CrackerItem>? catalog})
     : _catalog = List<CrackerItem>.from(catalog ?? const <CrackerItem>[]) {
-    discountController.text = '0.00';
+    discountController.clear();
     if (Firebase.apps.isNotEmpty) {
       _activeUserId = FirebaseAuth.instance.currentUser?.uid;
       _authSubscription = FirebaseAuth.instance.authStateChanges().listen((
@@ -198,7 +198,7 @@ class SalesViewModel extends ChangeNotifier {
     customerPhoneController.clear();
     customerEmailController.clear();
     notesController.clear();
-    discountController.text = '0.00';
+    discountController.clear();
     discountValueController.clear();
     totalExpenditure = 0.0;
     _errorMessage = null;
@@ -557,7 +557,7 @@ class SalesViewModel extends ChangeNotifier {
     _cart.clear();
     _discountPercent = 0.0;
     _discountValue = 0.0;
-    discountController.text = '0.00';
+    discountController.clear();
     discountValueController.clear();
     customerNameController.clear();
     customerPhoneController.clear();
@@ -587,7 +587,9 @@ class SalesViewModel extends ChangeNotifier {
     notesController.text = draft.notes;
     _discountPercent = draft.discountPercent;
     _discountValue = draft.discountValue;
-    discountController.text = draft.discountPercent.toStringAsFixed(2);
+    discountController.text = draft.discountPercent > 0
+        ? draft.discountPercent.round().toString()
+        : '';
     discountValueController.text = draft.discountValue > 0
         ? draft.discountValue.toStringAsFixed(2)
         : '';
@@ -658,7 +660,7 @@ class SalesViewModel extends ChangeNotifier {
   }
 
   void applyDiscountPercent(double amount) {
-    final safePercent = amount.clamp(0.0, 100.0);
+    final safePercent = amount.clamp(0.0, 100.0).roundToDouble();
     _discountPercent = safePercent;
     _discountValue = 0.0;
     discountValueController.clear();
@@ -715,7 +717,7 @@ class SalesViewModel extends ChangeNotifier {
     _cart.clear();
     _discountPercent = 0.0;
     _discountValue = 0.0;
-    discountController.text = '0.00';
+    discountController.clear();
     discountValueController.clear();
     customerNameController.clear();
     customerPhoneController.clear();
@@ -764,12 +766,24 @@ class SalesViewModel extends ChangeNotifier {
     return invoice;
   }
 
+  void updateInvoiceDiscount(Invoice invoice, double amount) {
+    if (invoice.paymentRecorded) {
+      throw StateError('Discount cannot be changed after payment.');
+    }
+    invoice.discountAmount = amount.clamp(0.0, invoice.grossTotal).toDouble();
+    invoice.recalculateTotals();
+    notifyListeners();
+  }
+
   Future<void> recordPayment(
     Invoice invoice, {
     required double cash,
     required double upi,
     required double card,
   }) async {
+    if (invoice.isFullyPaid) {
+      throw StateError('This bill is fully paid and cannot be edited.');
+    }
     if (cash < 0 || upi < 0 || card < 0 || cash + upi + card <= 0) {
       throw StateError('Enter the amount received for at least one mode.');
     }

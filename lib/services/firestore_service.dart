@@ -665,6 +665,10 @@ class FirestoreService {
     }
 
     await _salesCollection(uid).doc(invoice.id).set({
+      'discountAmount': invoice.discountAmount,
+      'grossTotal': invoice.grossTotal,
+      'taxTotal': invoice.taxTotal,
+      'netTotal': invoice.netTotal,
       'cashPaid': invoice.cashPaid,
       'upiPaid': invoice.upiPaid,
       'cardPaid': invoice.cardPaid,
